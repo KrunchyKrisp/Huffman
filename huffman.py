@@ -16,12 +16,18 @@ if __name__ == '__main__':
     source = Path(args.Source)
     destination = args.Destination
 
+    # encoding
     if args.Decode:
+        # check source extension
         if source.suffix != encoded_file_extension:
             print(f'Wrong source file extension for decoding: {source.suffix}')
             print(f'Expected source file extension for decoding: {encoded_file_extension}')
             exit()
         # check destination
+        if destination is None:
+            # need to figure out original extension? maybe different flow overall
+            destination = source.stem + '.???'
+        destination = Path(destination)
 
     # encoding
     else:
@@ -29,12 +35,13 @@ if __name__ == '__main__':
         if destination is None:
             destination = source.stem + encoded_file_extension
         destination = Path(destination)
+        # in case destination was not None, check extension
         if destination.suffix != encoded_file_extension:
             print(f'Wrong destination file extension for encoding: {destination.suffix}')
             print(f'Expected destination file extension for encoding: {encoded_file_extension}')
             exit()
 
-    # later
+    # reading/writing
     with source.open('rb') as s_file:
         with destination.open('wb') as d_file:
             while s_buffer := s_file.read(16):
