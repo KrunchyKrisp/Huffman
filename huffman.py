@@ -34,12 +34,27 @@ def parse_args_encode(source: str, destination: str) -> (Path, Path):
     return source, destination
 
 
-def split_byte(bytes: int, current_bits: int, n: int):
+def split_byte(bytes: int, current_bits: int, n: int) -> (int, int):
     if current_bits > n:
         return bytes >> (current_bits - n), bytes & ((1 << (current_bits - n)) - 1)
     else:
         return bytes, 0
 
+def split_bytes(bytes: [int], byte_size: int) -> [int]:
+    if byte_size == 8:
+        return bytes
+
+    result = []
+    current = 0
+    current_bits = 0
+    while bytes:
+        while bytes and current_bits < byte_size:
+            current = (current << 8) + bytes.pop(0)
+            current_bits += 8
+        left, current = split_byte(current, current_bits, byte_size)
+        current_bits -= byte_size
+        result.append(left)
+    return result
 
 def decode(source, destination):
     # Path, str (find out original extension from header)
@@ -51,21 +66,8 @@ def encode(source, destination, byte_size):
     # Path, Path (checked)
     source, destination = parse_args_encode(source, destination)
     print(f'{source, destination = }')
-    s_bytes = source.read_bytes()
-    s_bytes = [byte for byte in s_bytes]
-    s_bytes_split = []
-    if byte_size != 8:
-        current = 0
-        current_bits = 0
-        while s_bytes:
-            while s_bytes and current_bits < byte_size:
-                current = (current << 8) + s_bytes.pop(0)
-                current_bits += 8
-            left, current = split_byte(current, current_bits, byte_size)
-            current_bits -= byte_size
-            s_bytes_split.append(left)
-    else:
-        s_bytes_split = s_bytes
+    s_bytes = [byte for byte in source.read_bytes()]
+    s_bytes_split = split_bytes(s_bytes, byte_size)
 
     print(f'{s_bytes = }')
     print(f'{s_bytes_split = }')
