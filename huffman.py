@@ -6,7 +6,6 @@ from collections import Counter, defaultdict
 encoded_file_extension = '.huff'
 
 
-
 class Node:
     def __init__(self, char, freq):
         self.char = char
@@ -37,15 +36,15 @@ def build_huffman_tree(data):
     return heap[0]
 
 
-def generate_codes(node, prefix="", code_dict=None):
+def generate_codes(node, prefix='', code_dict=None):
     if code_dict is None:
         code_dict = {}
 
     if node is not None:
         if node.char is not None:
             code_dict[node.char] = prefix
-        generate_codes(node.left, prefix + "0", code_dict)
-        generate_codes(node.right, prefix + "1", code_dict)
+        generate_codes(node.left, prefix + '0', code_dict)
+        generate_codes(node.right, prefix + '1', code_dict)
 
     return code_dict
 
@@ -103,6 +102,19 @@ def split_bytes(file_bytes: [int], byte_size: int) -> [int]:
     return result
 
 
+def normalize_bytes(encoded_bytes: [bytes]) -> [int]:
+    result = []
+    current = ''
+    while encoded_bytes:
+        while encoded_bytes and len(current) < 8:
+            current += encoded_bytes.pop(0)
+        if len(current) < 8:
+            current += '0' * (8 - len(current))
+        result.append(int(current[:8], 2))
+        current = current[8:]
+    return result
+
+
 def decode(source, destination):
     # Path, str (find out original extension from header)
     source, destination = parse_args_decode(source, destination)
@@ -116,8 +128,15 @@ def encode(source, destination, byte_size):
     s_bytes = [byte for byte in source.read_bytes()]
     s_bytes_split = split_bytes(s_bytes, byte_size)
     print(f'{s_bytes_split = }')
-    res = generate_codes(build_huffman_tree(s_bytes_split), '')
+    res = generate_codes(build_huffman_tree(s_bytes_split))
     print(f'{res = }')
+    d_bytes = [res[byte] for byte in s_bytes_split]
+    print(f'{d_bytes = }')
+    d_bytes = bytearray(normalize_bytes(d_bytes))
+    print(f'{d_bytes = }')
+    with open(destination, 'wb') as f:
+        f.write(d_bytes)
+
 
 def main():
     parser = argparse.ArgumentParser()
