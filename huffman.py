@@ -1,4 +1,3 @@
-import os
 import argparse
 from pathlib import Path
 
@@ -34,27 +33,29 @@ def parse_args_encode(source: str, destination: str) -> (Path, Path):
     return source, destination
 
 
-def split_byte(bytes: int, current_bits: int, n: int) -> (int, int):
-    if current_bits > n:
-        return bytes >> (current_bits - n), bytes & ((1 << (current_bits - n)) - 1)
+def split_byte(current_bytes: int, current_bits: int, byte_size: int) -> (int, int):
+    if current_bits > byte_size:
+        return current_bytes >> (current_bits - byte_size), current_bytes & ((1 << (current_bits - byte_size)) - 1)
     else:
-        return bytes, 0
+        return current_bytes << (byte_size - current_bits), 0
 
-def split_bytes(bytes: [int], byte_size: int) -> [int]:
+
+def split_bytes(file_bytes: [int], byte_size: int) -> [int]:
     if byte_size == 8:
-        return bytes
+        return file_bytes
 
     result = []
     current = 0
     current_bits = 0
-    while bytes:
-        while bytes and current_bits < byte_size:
-            current = (current << 8) + bytes.pop(0)
+    while file_bytes:
+        while file_bytes and current_bits < byte_size:
+            current = (current << 8) + file_bytes.pop(0)
             current_bits += 8
         left, current = split_byte(current, current_bits, byte_size)
         current_bits -= byte_size
         result.append(left)
     return result
+
 
 def decode(source, destination):
     # Path, str (find out original extension from header)
@@ -68,12 +69,10 @@ def encode(source, destination, byte_size):
     print(f'{source, destination = }')
     s_bytes = [byte for byte in source.read_bytes()]
     s_bytes_split = split_bytes(s_bytes, byte_size)
-
-    print(f'{s_bytes = }')
     print(f'{s_bytes_split = }')
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('Source', help='Source file')
     parser.add_argument('-d', '--Destination', help='Destination file')
@@ -89,3 +88,7 @@ if __name__ == '__main__':
         decode(source, destination)
     else:
         encode(source, destination, args.ByteSize)
+
+
+if __name__ == '__main__':
+    main()
