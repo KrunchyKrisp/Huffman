@@ -34,6 +34,43 @@ def parse_args_encode(source: str, destination: str) -> (Path, Path):
     return source, destination
 
 
+def split_byte(bytes: int, current_bits: int, n: int):
+    if current_bits > n:
+        return bytes >> (current_bits - n), bytes & ((1 << (current_bits - n)) - 1)
+    else:
+        return bytes, 0
+
+
+def decode(source, destination):
+    # Path, str (find out original extension from header)
+    source, destination = parse_args_decode(source, destination)
+    print(f'{source, destination = }')
+
+
+def encode(source, destination, byte_size):
+    # Path, Path (checked)
+    source, destination = parse_args_encode(source, destination)
+    print(f'{source, destination = }')
+    s_bytes = source.read_bytes()
+    s_bytes = [byte for byte in s_bytes]
+    s_bytes_split = []
+    if byte_size != 8:
+        current = 0
+        current_bits = 0
+        while s_bytes:
+            while s_bytes and current_bits < byte_size:
+                current = (current << 8) + s_bytes.pop(0)
+                current_bits += 8
+            left, current = split_byte(current, current_bits, byte_size)
+            current_bits -= byte_size
+            s_bytes_split.append(left)
+    else:
+        s_bytes_split = s_bytes
+
+    print(f'{s_bytes = }')
+    print(f'{s_bytes_split = }')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('Source', help='Source file')
@@ -46,9 +83,7 @@ if __name__ == '__main__':
     source = args.Source
     destination = args.Destination
 
-    # Path, str (find out original extension from header)
     if args.Decode:
-        source, destination = parse_args_decode(source, destination)
-    # Path, Path (checked)
+        decode(source, destination)
     else:
-        source, destination = parse_args_encode(source, destination)
+        encode(source, destination, args.ByteSize)
