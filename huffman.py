@@ -1,11 +1,13 @@
 import argparse
 from pathlib import Path
 import heapq
-from collections import Counter, defaultdict
+from collections import Counter
 
+# our chosen file extension
 encoded_file_extension = '.huff'
 
 
+# Node for huffman tree
 class Node:
     def __init__(self, char, freq):
         self.char = char
@@ -18,6 +20,7 @@ class Node:
         return self.freq < other.freq
 
 
+# building huffman tree
 def build_huffman_tree(data):
     frequency = Counter(data)
     heap = [Node(char, freq) for char, freq in frequency.items()]
@@ -36,6 +39,7 @@ def build_huffman_tree(data):
     return heap[0]
 
 
+# recursively generate huffman dictionary
 def generate_codes(node, prefix='', code_dict=None):
     if code_dict is None:
         code_dict = {}
@@ -49,6 +53,7 @@ def generate_codes(node, prefix='', code_dict=None):
     return code_dict
 
 
+# parse source/destination filenames and extensions for encoding
 def parse_args_decode(source: str, destination: str) -> (Path, str):
     # check source extension
     source = Path(source)
@@ -63,6 +68,7 @@ def parse_args_decode(source: str, destination: str) -> (Path, str):
     return source, destination
 
 
+# parse source/destination filenames and extensions for encoding
 def parse_args_encode(source: str, destination: str) -> (Path, Path):
     # assume name
     source = Path(source)
@@ -78,6 +84,7 @@ def parse_args_encode(source: str, destination: str) -> (Path, Path):
     return source, destination
 
 
+# splits 8-bit int into byte_size-bit int (left) and leftover (right)
 def split_byte(current_bytes: int, current_bits: int, byte_size: int) -> (int, int):
     if current_bits > byte_size:
         return current_bytes >> (current_bits - byte_size), current_bytes & ((1 << (current_bits - byte_size)) - 1)
@@ -85,6 +92,7 @@ def split_byte(current_bytes: int, current_bits: int, byte_size: int) -> (int, i
         return current_bytes << (byte_size - current_bits), 0
 
 
+# splits 8-bit ints into byte_size-bit ints
 def split_bytes(file_bytes: [int], byte_size: int) -> [int]:
     if byte_size == 8:
         return file_bytes
@@ -102,6 +110,7 @@ def split_bytes(file_bytes: [int], byte_size: int) -> [int]:
     return result
 
 
+# turns variable size huffman bytes into 8-bit ints
 def normalize_bytes(encoded_bytes: [bytes]) -> [int]:
     result = []
     current = ''
@@ -125,13 +134,24 @@ def encode(source, destination, byte_size):
     # Path, Path (checked)
     source, destination = parse_args_encode(source, destination)
     print(f'{source, destination = }')
+
+    # get bytes as ints
     s_bytes = [byte for byte in source.read_bytes()]
+
+    # split bytes by byte_size
     s_bytes_split = split_bytes(s_bytes, byte_size)
     print(f'{s_bytes_split = }')
+
+    # generate huffman dict
     res = generate_codes(build_huffman_tree(s_bytes_split))
     print(f'{res = }')
+
+    # encode
     d_bytes = [res[byte] for byte in s_bytes_split]
     print(f'{d_bytes = }')
+
+    # !!! Add header to d_bytes start before writing to file
+
     d_bytes = bytearray(normalize_bytes(d_bytes))
     print(f'{d_bytes = }')
     with open(destination, 'wb') as f:
@@ -139,6 +159,7 @@ def encode(source, destination, byte_size):
 
 
 def main():
+    # arg parser for cli
     parser = argparse.ArgumentParser()
     parser.add_argument('Source', help='Source file')
     parser.add_argument('-d', '--Destination', help='Destination file')
@@ -146,7 +167,6 @@ def main():
     parser.add_argument('-b', '--ByteSize', help='Size of a byte', default=8, type=int, choices=range(2, 17))
     args = parser.parse_args()
 
-    print(args)
     source = args.Source
     destination = args.Destination
 
