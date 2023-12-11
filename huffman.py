@@ -1,7 +1,53 @@
 import argparse
 from pathlib import Path
+import heapq
+from collections import Counter, defaultdict
 
 encoded_file_extension = '.huff'
+
+
+
+class Node:
+    def __init__(self, char, freq):
+        self.char = char
+        self.freq = freq
+        self.left = None
+        self.right = None
+
+    # For comparison of nodes
+    def __lt__(self, other):
+        return self.freq < other.freq
+
+
+def build_huffman_tree(data):
+    frequency = Counter(data)
+    heap = [Node(char, freq) for char, freq in frequency.items()]
+    heapq.heapify(heap)
+
+    while len(heap) > 1:
+        node1 = heapq.heappop(heap)
+        node2 = heapq.heappop(heap)
+
+        merged = Node(None, node1.freq + node2.freq)
+        merged.left = node1
+        merged.right = node2
+
+        heapq.heappush(heap, merged)
+
+    return heap[0]
+
+
+def generate_codes(node, prefix="", code_dict=None):
+    if code_dict is None:
+        code_dict = {}
+
+    if node is not None:
+        if node.char is not None:
+            code_dict[node.char] = prefix
+        generate_codes(node.left, prefix + "0", code_dict)
+        generate_codes(node.right, prefix + "1", code_dict)
+
+    return code_dict
 
 
 def parse_args_decode(source: str, destination: str) -> (Path, str):
@@ -70,7 +116,8 @@ def encode(source, destination, byte_size):
     s_bytes = [byte for byte in source.read_bytes()]
     s_bytes_split = split_bytes(s_bytes, byte_size)
     print(f'{s_bytes_split = }')
-
+    res = generate_codes(build_huffman_tree(s_bytes_split), '')
+    print(f'{res = }')
 
 def main():
     parser = argparse.ArgumentParser()
