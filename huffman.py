@@ -166,4 +166,25 @@ class Huffman:
 
 
 if __name__ == '__main__':
+<<<<<<< HEAD
     Huffman().run()
+=======
+    main()
+# po destytojo pokalbio
+#  atkoduojant gali pasirinkti varda
+# pirmam tik tekso perdavimo ilgis???? - parametras
+# turi but pasirenkamas neperkompiliuojant programos
+
+
+# adaptyvus
+# argumentai - kodo lentele yra tuscia - sudarom kodo lentele kazkokia pagal nutylejima
+# abecele turim zinot is anksto
+# kas kiek simobliu rekonstruojam
+# dar vienas parametras - pasiekus tam tikro dydzui koda, kad kazkuriuo momentu galima uzsaldyti lentele arba ja nuzudyti ir sukurti is naujo, arba normalizuoti
+# orientuotis taip kad - maksimalus daznis pasiekia tam tikra riba - kad sitoj vietoj elgesys gali but dvejopas - arba uzsaldom ir dirbam su uzsaldytu, arba nukillinam ir kuriam per nauja
+# galima pasiekus riba visu daznius padalint is dvieju - tada dazniu proporcijos isliks, bet nera garanto kad medis nepasikeis ir tada reikai medi perkurti
+# kai dazniai labai dideli - medzio reagavims i pakeitimus pasidaro labai ...... sunki procedura(?)
+
+# parametrai - 1.n , 2.riba, 3.ka daryti pasiekus riba
+#  
+>>>>>>> 9fc142a (destytojo komentarai)
