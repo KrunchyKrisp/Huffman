@@ -112,7 +112,7 @@ def split_bytes(file_bytes: [int], byte_size: int) -> [int]:
 
 
 # turns variable size huffman bytes into 8-bit ints
-def normalize_bytes(encoded_bytes: [bytes]) -> [int]:
+def normalize_bytes(encoded_bytes: [str]) -> [int]:
     result = []
     current = ''
     while encoded_bytes:
