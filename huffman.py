@@ -113,16 +113,12 @@ def split_bytes(file_bytes: [int], byte_size: int) -> [int]:
 
 # turns variable size huffman bytes into 8-bit ints
 def normalize_bytes(encoded_bytes: [str]) -> [int]:
-    result = []
-    current = ''
-    while encoded_bytes:
-        while encoded_bytes and len(current) < 8:
-            current += encoded_bytes.pop(0)
-        if len(current) < 8:
-            current += '0' * (8 - len(current))
-        result.append(int(current[:8], 2))
-        current = current[8:]
-    return result
+    all_bytes = ''.join(encoded_bytes)
+    return [int(all_bytes[i:i + 8].ljust(8, '0'), 2) for i in range(0, len(all_bytes), 8)]
+
+
+def compress_huffman_table(huffman_table):
+    return ''
 
 
 def decode(source, destination):
@@ -144,14 +140,21 @@ def encode(source, destination, byte_size):
     print(f'{s_bytes_split = }')
 
     # generate huffman dict
-    res = generate_codes(build_huffman_tree(s_bytes_split))
-    print(f'{res = }')
+    huffman_table = generate_codes(build_huffman_tree(s_bytes_split))
+    print(f'{huffman_table = }')
 
     # encode
-    d_bytes = [res[byte] for byte in s_bytes_split]
+    d_bytes = [huffman_table[byte] for byte in s_bytes_split]
     print(f'{d_bytes = }')
 
     # !!! Add header to d_bytes start before writing to file
+
+    # byte_size: 4 bits
+    bin_byte_size = bin(byte_size - 1)[2:].zfill(4)
+    # huffman_table
+    bin_huffman_table = compress_huffman_table(huffman_table)
+
+    # d_bytes.insert(0, bin_byte_size + bin_huffman_table)
 
     d_bytes = bytearray(normalize_bytes(d_bytes))
     print(f'{d_bytes = }')
