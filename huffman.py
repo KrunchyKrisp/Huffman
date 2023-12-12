@@ -47,8 +47,9 @@ def generate_codes(node, prefix='', code_dict=None):
     if node is not None:
         if node.char is not None:
             code_dict[node.char] = prefix
-        generate_codes(node.left, prefix + '0', code_dict)
-        generate_codes(node.right, prefix + '1', code_dict)
+        else:
+            generate_codes(node.left, prefix + '0', code_dict)
+            generate_codes(node.right, prefix + '1', code_dict)
 
     return code_dict
 
