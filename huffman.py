@@ -13,19 +13,26 @@ class Huffman:
             self.freq = freq
             self.left = None
             self.right = None
+            self.pos = None
 
         # For comparison of nodes
         def __lt__(self, other):
             return self.freq < other.freq
 
+        def __repr__(self):
+            return f'Node({self.char}: {self.freq}, {self.pos})'
+
     @staticmethod
-    def split_bytes(file_bytes: str, byte_size: int) -> [int]:
-        return [file_bytes[i:i + byte_size] for i in range(0, len(file_bytes), byte_size)]
+    def split_bytes(file_bytes: str, byte_size: int) -> [str]:
+        return [file_bytes[i:i + byte_size]
+                for i in range(0, len(file_bytes), byte_size)]
 
     @staticmethod
     def normalize_bytes(encoded_bytes: [str]) -> [int]:
         all_bytes = ''.join(encoded_bytes)
-        return [int(all_bytes[i:i + 8].ljust(8, '0'), 2) for i in range(0, len(all_bytes), 8)]
+        all_bytes += '0' * (len(all_bytes) % 8)
+        return [int(all_bytes[i:i + 8], 2)
+                for i in range(0, len(all_bytes), 8)]
 
     def __init__(self):
         self.parser = None
@@ -89,7 +96,8 @@ class Huffman:
                 )
 
     def _read_source_bytes(self):
-        return ''.join(bin(byte)[2:].zfill(8) for byte in self.source.read_bytes())
+        return ''.join(bin(byte)[2:].zfill(8)
+                       for byte in self.source.read_bytes())
 
     def _build_huffman_tree(self, data):
         frequency = Counter(data)
@@ -123,14 +131,54 @@ class Huffman:
         self.huffman_table = code_dict
         return self.huffman_table
 
+    @staticmethod
+    def flatten_tree(node, heap=None):
+        if heap is None:
+            heap = []
+        if node:
+            heap.append(node)
+            if node.left:
+                Huffman.flatten_tree(node.left, heap)
+            if node.right:
+                Huffman.flatten_tree(node.right, heap)
+        return heap
+
+    @staticmethod
+    def encode_tree(node, code=None):
+        if code is None:
+            code = ''
+
+        if node:
+            if node.char:
+                code += '1' + node.char
+            else:
+                left, right = node.left, node.right
+                code += '0'
+                if left.pos % 2 == 1:
+                    code = Huffman.encode_tree(left, code)
+                    code = Huffman.encode_tree(right, code)
+                else:
+                    code = Huffman.encode_tree(right, code)
+                    code = Huffman.encode_tree(left, code)
+
+        return code
+
     def _compress_huffman_table(self):
-        return ''
+        root = self.huffman_tree
+        heap = sorted(Huffman.flatten_tree(root))
+        pos = 1
+        for node in heap:
+            node.pos = pos
+            pos += 1
+        print(f'{heap = }')
+        return Huffman.encode_tree(root)
 
     def _encode(self):
         print(f'{self.source, self.destination = }')
 
-        # get bytes as ints
+        # get bytes as str
         s_bytes = self._read_source_bytes()
+        print(f'{s_bytes = }')
 
         # split bytes by byte_size
         s_bytes_split = Huffman.split_bytes(s_bytes, self.byte_size)
@@ -147,22 +195,70 @@ class Huffman:
 
         # !!! Add header to d_bytes start before writing to file
 
-        # byte_size: 4 bits
+        # byte_size: 4 bits, encoding: -1, decoding: +1
         bin_byte_size = bin(self.byte_size - 1)[2:].zfill(4)
         print(f'{bin_byte_size = }')
         # huffman_table
         bin_huffman_table = self._compress_huffman_table()
         print(f'{bin_huffman_table = }')
 
-        # d_bytes.insert(0, bin_byte_size + bin_huffman_table)
+        d_bytes.insert(0, bin_byte_size + bin_huffman_table)
 
         d_bytes = bytearray(Huffman.normalize_bytes(d_bytes))
         print(f'{d_bytes = }')
         with open(self.destination, 'wb') as f:
             f.write(d_bytes)
 
+    def _uncompress_huffman_table(self, data: str, node):
+        if data:
+            if data[0] == '0':
+                node.left = Huffman.Node(None, None)
+                node.right = Huffman.Node(None, None)
+
+                data = self._uncompress_huffman_table(data[1:], node.left)
+                data = self._uncompress_huffman_table(data, node.right)
+            else:
+                node.char = data[1:9]
+                return data[9:]
+
+        return data
+
     def _decode(self):
         print(f'{self.source, self.destination = }')
+
+        # get bytes as str
+        s_bytes = self._read_source_bytes()
+        print(f'{s_bytes = }')
+
+        # byte_size: 4 bits, encoding: -1, decoding: +1
+        self.byte_size = int(s_bytes[:4], 2) + 1
+        print(f'{self.byte_size = }')
+
+        self.huffman_tree = Huffman.Node(None, None)
+        s_bytes = self._uncompress_huffman_table(s_bytes[4:], self.huffman_tree)
+        print(f'{s_bytes = }')
+        print(f'{self.huffman_tree = }')
+
+        self._generate_codes(self.huffman_tree)
+        self.huffman_table = {v: k for k, v in self.huffman_table.items()}
+        print(f'{self.huffman_table = }')
+
+        d_bytes = []
+        s_bytes = [char for char in s_bytes]
+        current_byte = ''
+        while s_bytes:
+            current_byte += s_bytes.pop(0)
+            if current_byte in self.huffman_table:
+                d_bytes.append(self.huffman_table[current_byte])
+                current_byte = ''
+
+        print(f'{d_bytes = }')
+
+        d_bytes = [int(byte, 2) for byte in d_bytes]
+        print(f'{d_bytes = }')
+
+        with open(self.destination, 'wb') as f:
+            f.write(bytearray(d_bytes))
 
 
 if __name__ == '__main__':
