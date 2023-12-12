@@ -1,196 +1,169 @@
-import argparse
+import argparse, heapq
 from pathlib import Path
-import heapq
 from collections import Counter
 
-# our chosen file extension
-encoded_file_extension = '.huff'
 
+class Huffman:
+    # our chosen file extension
+    encoded_file_extension = '.huff'
 
-# Node for huffman tree
-class Node:
-    def __init__(self, char, freq):
-        self.char = char
-        self.freq = freq
-        self.left = None
-        self.right = None
+    class Node:
+        def __init__(self, char, freq):
+            self.char = char
+            self.freq = freq
+            self.left = None
+            self.right = None
 
-    # For comparison of nodes
-    def __lt__(self, other):
-        return self.freq < other.freq
+        # For comparison of nodes
+        def __lt__(self, other):
+            return self.freq < other.freq
 
+    @staticmethod
+    def split_bytes(file_bytes: str, byte_size: int) -> [int]:
+        return [file_bytes[i:i + byte_size] for i in range(0, len(file_bytes), byte_size)]
 
-# building huffman tree
-def build_huffman_tree(data):
-    frequency = Counter(data)
-    heap = [Node(char, freq) for char, freq in frequency.items()]
-    heapq.heapify(heap)
+    @staticmethod
+    def normalize_bytes(encoded_bytes: [str]) -> [int]:
+        all_bytes = ''.join(encoded_bytes)
+        return [int(all_bytes[i:i + 8].ljust(8, '0'), 2) for i in range(0, len(all_bytes), 8)]
 
-    while len(heap) > 1:
-        node1 = heapq.heappop(heap)
-        node2 = heapq.heappop(heap)
+    def __init__(self):
+        self.parser = None
+        self.args = None
+        self.source = None
+        self.destination = None
+        self.byte_size = None
+        self.decode = None
 
-        merged = Node(None, node1.freq + node2.freq)
-        merged.left = node1
-        merged.right = node2
+        self.huffman_tree = None
+        self.huffman_table = None
 
-        heapq.heappush(heap, merged)
-
-    return heap[0]
-
-
-# recursively generate huffman dictionary
-def generate_codes(node, prefix='', code_dict=None):
-    if code_dict is None:
-        code_dict = {}
-
-    if node is not None:
-        if node.char is not None:
-            code_dict[node.char] = prefix
+    def run(self):
+        self._parse_args()
+        if self.decode:
+            self._decode()
         else:
-            generate_codes(node.left, prefix + '0', code_dict)
-            generate_codes(node.right, prefix + '1', code_dict)
+            self._encode()
 
-    return code_dict
+    def _parse_args(self):
+        self.parser = argparse.ArgumentParser()
+        self.parser.add_argument('Source', help='Source file')
+        self.parser.add_argument('-d', '--Destination', help='Destination file')
+        self.parser.add_argument('-D', '--Decode', help='Decode flag', action='store_true')
+        self.parser.add_argument('-b', '--ByteSize', help='Size of a byte', default=8, type=int, choices=range(2, 17))
+        self.args = self.parser.parse_args()
 
+        self.source = self.args.Source
+        self.destination = self.args.Destination
+        self.byte_size = self.args.ByteSize
+        self.decode = self.args.Decode
 
-# parse source/destination filenames and extensions for encoding
-def parse_args_decode(source: str, destination: str, parser) -> (Path, Path):
-    # check source extension
-    source = Path(source)
+        # additional checks for files
+        self.source = Path(self.source)
+        if not self.source.exists():
+            self.parser.error(f'Source file {self.source} does not exist')
 
-    if source.suffix != encoded_file_extension:
-        parser.error(
-            f'Wrong source file extension for decoding: {source.suffix}\n'
-            f'Expected source file extension for decoding: {encoded_file_extension}'
-        )
+        if self.decode:
+            if self.source.suffix != Huffman.encoded_file_extension:
+                self.parser.error(
+                    f'Wrong source file extension for decoding: {self.source.suffix}\n'
+                    f'Expected source file extension for decoding: {Huffman.encoded_file_extension}'
+                )
 
-    if not source.exists():
-        parser.error(f'Source file {source} does not exist')
+            # check destination
+            if self.destination is None:
+                self.parser.error(f'Destination is required for decoding')
 
-    # check destination
-    if destination is None:
-        parser.error(f'Destination is required for decoding')
+            self.destination = Path(self.destination)
+        else:
+            # assume name
+            if self.destination is None:
+                self.destination = self.source.stem + Huffman.encoded_file_extension
+            self.destination = Path(self.destination)
 
-    return source, Path(destination)
+            # in case destination was not None, check extension
+            if self.destination.suffix != Huffman.encoded_file_extension:
+                self.parser.error(
+                    f'Wrong destination file extension for encoding: {self.destination.suffix}\n'
+                    f'Expected destination file extension for encoding: {Huffman.encoded_file_extension}'
+                )
 
+    def _read_source_bytes(self):
+        return ''.join(bin(byte)[2:].zfill(8) for byte in self.source.read_bytes())
 
-# parse source/destination filenames and extensions for encoding
-def parse_args_encode(source: str, destination: str, parser) -> (Path, Path):
-    # assume name
-    source = Path(source)
+    def _build_huffman_tree(self, data):
+        frequency = Counter(data)
+        heap = [Huffman.Node(char, freq) for char, freq in frequency.items()]
+        heapq.heapify(heap)
 
-    if not source.exists():
-        parser.error(f'Source file {source} does not exist')
+        while len(heap) > 1:
+            node1 = heapq.heappop(heap)
+            node2 = heapq.heappop(heap)
 
-    if destination is None:
-        destination = source.stem + encoded_file_extension
-    destination = Path(destination)
+            merged = Huffman.Node(None, node1.freq + node2.freq)
+            merged.left = node1
+            merged.right = node2
 
-    # in case destination was not None, check extension
-    if destination.suffix != encoded_file_extension:
-        parser.error(
-            f'Wrong destination file extension for encoding: {destination.suffix}\n'
-            f'Expected destination file extension for encoding: {encoded_file_extension}'
-        )
+            heapq.heappush(heap, merged)
 
-    return source, destination
+        self.huffman_tree = heap[0]
+        return self.huffman_tree
 
+    def _generate_codes(self, node, prefix='', code_dict=None):
+        if code_dict is None:
+            code_dict = {}
 
-# splits 8-bit int into byte_size-bit int (left) and leftover (right)
-def split_byte(current_bytes: int, current_bits: int, byte_size: int) -> (int, int):
-    if current_bits > byte_size:
-        return current_bytes >> (current_bits - byte_size), current_bytes & ((1 << (current_bits - byte_size)) - 1)
-    else:
-        return current_bytes << (byte_size - current_bits), 0
+        if node is not None:
+            if node.char is not None:
+                code_dict[node.char] = prefix
+            else:
+                self._generate_codes(node.left, prefix + '0', code_dict)
+                self._generate_codes(node.right, prefix + '1', code_dict)
 
+        self.huffman_table = code_dict
+        return self.huffman_table
 
-# splits 8-bit ints into byte_size-bit ints
-def split_bytes(file_bytes: [int], byte_size: int) -> [int]:
-    if byte_size == 8:
-        return file_bytes
+    def _compress_huffman_table(self):
+        return ''
 
-    result = []
-    current = 0
-    current_bits = 0
-    while file_bytes:
-        while file_bytes and current_bits < byte_size:
-            current = (current << 8) + file_bytes.pop(0)
-            current_bits += 8
-        left, current = split_byte(current, current_bits, byte_size)
-        current_bits -= byte_size
-        result.append(left)
-    return result
+    def _encode(self):
+        print(f'{self.source, self.destination = }')
 
+        # get bytes as ints
+        s_bytes = self._read_source_bytes()
 
-# turns variable size huffman bytes into 8-bit ints
-def normalize_bytes(encoded_bytes: [str]) -> [int]:
-    all_bytes = ''.join(encoded_bytes)
-    return [int(all_bytes[i:i + 8].ljust(8, '0'), 2) for i in range(0, len(all_bytes), 8)]
+        # split bytes by byte_size
+        s_bytes_split = Huffman.split_bytes(s_bytes, self.byte_size)
+        print(f'{s_bytes_split = }')
 
+        # generate huffman dict
+        self._generate_codes(self._build_huffman_tree(s_bytes_split))
+        print(f'{self.huffman_table = }')
+        print(f'{self.huffman_tree = }')
 
-def compress_huffman_table(huffman_table):
-    return ''
+        # encode
+        d_bytes = [self.huffman_table[byte] for byte in s_bytes_split]
+        print(f'{d_bytes = }')
 
+        # !!! Add header to d_bytes start before writing to file
 
-def decode(source, destination, parser):
-    # Path, str (find out original extension from header)
-    source, destination = parse_args_decode(source, destination, parser)
-    print(f'{source, destination = }')
+        # byte_size: 4 bits
+        bin_byte_size = bin(self.byte_size - 1)[2:].zfill(4)
+        print(f'{bin_byte_size = }')
+        # huffman_table
+        bin_huffman_table = self._compress_huffman_table()
+        print(f'{bin_huffman_table = }')
 
+        # d_bytes.insert(0, bin_byte_size + bin_huffman_table)
 
-def encode(source, destination, byte_size, parser):
-    # Path, Path (checked)
-    source, destination = parse_args_encode(source, destination, parser)
-    print(f'{source, destination = }')
+        d_bytes = bytearray(Huffman.normalize_bytes(d_bytes))
+        print(f'{d_bytes = }')
+        with open(self.destination, 'wb') as f:
+            f.write(d_bytes)
 
-    # get bytes as ints
-    s_bytes = [byte for byte in source.read_bytes()]
-
-    # split bytes by byte_size
-    s_bytes_split = split_bytes(s_bytes, byte_size)
-    print(f'{s_bytes_split = }')
-
-    # generate huffman dict
-    huffman_table = generate_codes(build_huffman_tree(s_bytes_split))
-    print(f'{huffman_table = }')
-
-    # encode
-    d_bytes = [huffman_table[byte] for byte in s_bytes_split]
-    print(f'{d_bytes = }')
-
-    # !!! Add header to d_bytes start before writing to file
-
-    # byte_size: 4 bits
-    bin_byte_size = bin(byte_size - 1)[2:].zfill(4)
-    # huffman_table
-    bin_huffman_table = compress_huffman_table(huffman_table)
-
-    # d_bytes.insert(0, bin_byte_size + bin_huffman_table)
-
-    d_bytes = bytearray(normalize_bytes(d_bytes))
-    print(f'{d_bytes = }')
-    with open(destination, 'wb') as f:
-        f.write(d_bytes)
-
-
-def main():
-    # arg parser for cli
-    parser = argparse.ArgumentParser()
-    parser.add_argument('Source', help='Source file')
-    parser.add_argument('-d', '--Destination', help='Destination file')
-    parser.add_argument('-D', '--Decode', help='Decode flag', action='store_true')
-    parser.add_argument('-b', '--ByteSize', help='Size of a byte', default=8, type=int, choices=range(2, 17))
-    args = parser.parse_args()
-
-    source = args.Source
-    destination = args.Destination
-
-    if args.Decode:
-        decode(source, destination, parser)
-    else:
-        encode(source, destination, args.ByteSize, parser)
+    def _decode(self):
+        print(f'{self.source, self.destination = }')
 
 
 if __name__ == '__main__':
-    main()
+    Huffman().run()
