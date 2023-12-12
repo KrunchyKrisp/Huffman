@@ -55,32 +55,44 @@ def generate_codes(node, prefix='', code_dict=None):
 
 
 # parse source/destination filenames and extensions for encoding
-def parse_args_decode(source: str, destination: str) -> (Path, str):
+def parse_args_decode(source: str, destination: str, parser) -> (Path, Path):
     # check source extension
     source = Path(source)
+
     if source.suffix != encoded_file_extension:
-        print(f'Wrong source file extension for decoding: {source.suffix}')
-        print(f'Expected source file extension for decoding: {encoded_file_extension}')
-        exit()
+        parser.error(
+            f'Wrong source file extension for decoding: {source.suffix}\n'
+            f'Expected source file extension for decoding: {encoded_file_extension}'
+        )
+
+    if not source.exists():
+        parser.error(f'Source file {source} does not exist')
+
     # check destination
     if destination is None:
-        destination = source.stem
+        parser.error(f'Destination is required for decoding')
 
-    return source, destination
+    return source, Path(destination)
 
 
 # parse source/destination filenames and extensions for encoding
-def parse_args_encode(source: str, destination: str) -> (Path, Path):
+def parse_args_encode(source: str, destination: str, parser) -> (Path, Path):
     # assume name
     source = Path(source)
+
+    if not source.exists():
+        parser.error(f'Source file {source} does not exist')
+
     if destination is None:
         destination = source.stem + encoded_file_extension
     destination = Path(destination)
+
     # in case destination was not None, check extension
     if destination.suffix != encoded_file_extension:
-        print(f'Wrong destination file extension for encoding: {destination.suffix}')
-        print(f'Expected destination file extension for encoding: {encoded_file_extension}')
-        exit()
+        parser.error(
+            f'Wrong destination file extension for encoding: {destination.suffix}\n'
+            f'Expected destination file extension for encoding: {encoded_file_extension}'
+        )
 
     return source, destination
 
@@ -121,15 +133,15 @@ def compress_huffman_table(huffman_table):
     return ''
 
 
-def decode(source, destination):
+def decode(source, destination, parser):
     # Path, str (find out original extension from header)
-    source, destination = parse_args_decode(source, destination)
+    source, destination = parse_args_decode(source, destination, parser)
     print(f'{source, destination = }')
 
 
-def encode(source, destination, byte_size):
+def encode(source, destination, byte_size, parser):
     # Path, Path (checked)
-    source, destination = parse_args_encode(source, destination)
+    source, destination = parse_args_encode(source, destination, parser)
     print(f'{source, destination = }')
 
     # get bytes as ints
@@ -175,9 +187,9 @@ def main():
     destination = args.Destination
 
     if args.Decode:
-        decode(source, destination)
+        decode(source, destination, parser)
     else:
-        encode(source, destination, args.ByteSize)
+        encode(source, destination, args.ByteSize, parser)
 
 
 if __name__ == '__main__':
