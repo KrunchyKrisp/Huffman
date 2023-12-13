@@ -97,7 +97,7 @@ class Huffman:
 		self.normal_padding += pad
 		all_bytes += '0' * pad
 		if encode_padding:
-			all_bytes = (bin(self.split_padding - 1)[2:].zfill(4) + bin(self.normal_padding - 1)[2:].zfill(4)).join([all_bytes[:4], all_bytes[12:]])
+			all_bytes = (bin(self.split_padding)[2:].zfill(4) + bin(self.normal_padding)[2:].zfill(4)).join([all_bytes[:4], all_bytes[12:]])
 		print(f'{all_bytes = }')
 		return [int(all_bytes[i:i + 8], 2) for i in range(0, len(all_bytes), 8)]
 
@@ -233,10 +233,10 @@ class Huffman:
 		self.byte_size = int(s_bytes[:4], 2) + 1
 		print(f'{self.byte_size = }')
 
-		self.split_padding = int(s_bytes[4:8], 2) + 1
+		self.split_padding = int(s_bytes[4:8], 2)
 		print(f'{self.split_padding = }')
 
-		self.normal_padding = int(s_bytes[8:12], 2) + 1
+		self.normal_padding = int(s_bytes[8:12], 2)
 		print(f'{self.normal_padding = }')
 
 		self.huffman_tree = Huffman.Node(None, None, '')
@@ -261,7 +261,7 @@ class Huffman:
 		print(f'{d_bytes = }')
 
 		# fixing split_padding
-		d_bytes[-1] = d_bytes[-1][:-self.split_padding]
+		d_bytes[-1] = d_bytes[-1][:len(d_bytes[-1])-self.split_padding]
 		print(f'{d_bytes = }')
 
 		d_bytes = self.normalize_bytes(d_bytes)
