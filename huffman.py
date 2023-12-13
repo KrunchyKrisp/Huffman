@@ -21,7 +21,7 @@ class Huffman:
 			return self.freq < other.freq
 
 		def __repr__(self):
-			# debug printing
+			# debug # printing
 			return f'Node({self.char}: {self.freq}, {self.code})'
 
 	def __init__(self):
@@ -105,8 +105,9 @@ class Huffman:
 		all_bytes += '0' * pad
 		if encode_padding:
 			# if we're encoding, encode split_padding and normal_padding as the [4:12] bits of the header
-			all_bytes = (bin(self.split_padding)[2:].zfill(4) + bin(self.normal_padding)[2:].zfill(4)).join([all_bytes[:4], all_bytes[12:]])
-		print(f'{all_bytes = }')
+			all_bytes = (bin(self.split_padding)[2:].zfill(4) + bin(self.normal_padding)[2:].zfill(4)).join(
+				[all_bytes[:4], all_bytes[12:]])
+		# print(f'{all_bytes = }')
 		# return a list of bytes split every 8 bits, parsed back into integers
 		return [int(all_bytes[i:i + 8], 2) for i in range(0, len(all_bytes), 8)]
 
@@ -195,41 +196,41 @@ class Huffman:
 		return Huffman.encode_tree(self.huffman_tree)
 
 	def _encode(self):
-		print(f'{self.source, self.destination = }')
+		# print(f'{self.source, self.destination = }')
 
 		# get bytes as bit string (adds split_padding)
 		s_bytes = self._read_source_bytes()
-		print(f'{s_bytes = }')
+		# print(f'{s_bytes = }')
 
 		# split bytes by byte_size
 		s_bytes_split = self.split_bytes(s_bytes)
-		print(f'{s_bytes_split = }')
+		# print(f'{s_bytes_split = }')
 
 		# generate huffman_tree and huffman_table
 		self._generate_codes(self._build_huffman_tree(s_bytes_split))
-		print(f'{self.huffman_table = }')
-		print(f'{self.huffman_tree = }')
+		# print(f'{self.huffman_table = }')
+		# print(f'{self.huffman_tree = }')
 
 		# encode using huffman_table
 		d_bytes = [self.huffman_table[byte] for byte in s_bytes_split]
-		print(f'{d_bytes = }')
+		# print(f'{d_bytes = }')
 
 		# !!! Add header to d_bytes start before writing to file
 
 		# byte_size: 4 bits, encoding: -1, decoding: +1
 		bin_byte_size = bin(self.byte_size - 1)[2:].zfill(4)
-		print(f'{bin_byte_size = }')
+		# print(f'{bin_byte_size = }')
 		# huffman_table
 		bin_huffman_table = self._compress_huffman_table()
-		print(f'{bin_huffman_table = }')
+		# print(f'{bin_huffman_table = }')
 
 		# byte_size (4bits) + split_padding (4bits) + normal_padding (4bits) + compressed huffman_table
 		d_bytes.insert(0, bin_byte_size + '00000000' + bin_huffman_table)
-		print(f'{d_bytes = }')
+		# print(f'{d_bytes = }')
 
 		# normalizes d_bytes into 8-bit bytes, adds normal_padding, encodes split and normal padding into header
 		d_bytes = self.normalize_bytes(d_bytes, True)
-		print(f'{d_bytes = }')
+		# print(f'{d_bytes = }')
 
 		# writing to file
 		with open(self.destination, 'wb') as f:
@@ -256,57 +257,61 @@ class Huffman:
 		return data
 
 	def _decode(self):
-		print(f'{self.source, self.destination = }')
+		# print(f'{self.source, self.destination = }')
 
 		# get bytes as bit string
 		s_bytes = self._read_source_bytes()
-		print(f'{s_bytes = }')
+		# print(f'{s_bytes = }')
 
 		# byte_size: first 4 bits, encoding: -1, decoding: +1
 		self.byte_size = int(s_bytes[:4], 2) + 1
-		print(f'{self.byte_size = }')
+		# print(f'{self.byte_size = }')
 
 		# split_padding: next 4 bits
 		self.split_padding = int(s_bytes[4:8], 2)
-		print(f'{self.split_padding = }')
+		# print(f'{self.split_padding = }')
 
 		# normal_padding: next 4 bits
 		self.normal_padding = int(s_bytes[8:12], 2)
-		print(f'{self.normal_padding = }')
+		# print(f'{self.normal_padding = }')
 
 		# setup empty root node
 		self.huffman_tree = Huffman.Node(None, None, '')
 		# get remaining s_bytes after decompressing huffman table bits into huffman_tree
 		s_bytes = self._uncompress_huffman_table(s_bytes[12:], self.huffman_tree)
-		print(f'{s_bytes = }')
-		print(f'{self.huffman_tree = }')
+		# print(f'{s_bytes = }')
+		# print(f'{self.huffman_tree = }')
 
 		# read huffman_table (in reverse code: char) from flattened huffman_tree, where nodes are leaves
-		self.huffman_table = {node.code: node.char for node in Huffman.flatten_tree(self.huffman_tree) if node.char is not None}
-		print(f'{self.huffman_table = }')
+		self.huffman_table = {node.code: node.char for node in Huffman.flatten_tree(self.huffman_tree) if
+		                      node.char is not None}
+		# print(f'{self.huffman_table = }')
 
 		d_bytes = []
 		# fixing normal_padding (added in encoding at the end to fit 8-bit bytes)
-		s_bytes = [char for char in s_bytes[:len(s_bytes) - self.normal_padding]]
-		print(f'{s_bytes[:len(s_bytes)-self.normal_padding] = }')
+		s_bytes = s_bytes[:len(s_bytes) - self.normal_padding]
+		# print(f'{s_bytes[:len(s_bytes)-self.normal_padding] = }')
 
 		# decoding using huffman_table
 		current_byte = ''
-		while s_bytes:
-			current_byte += s_bytes.pop(0)
+		read_length = 0
+		s_bytes_len = len(s_bytes)
+		while read_length + len(current_byte) < s_bytes_len:
+			current_byte += s_bytes[read_length + len(current_byte)]
 			if current_byte in self.huffman_table:
 				d_bytes.append(self.huffman_table[current_byte])
+				read_length += len(current_byte)
 				current_byte = ''
 
-		print(f'{d_bytes = }')
+		# print(f'{d_bytes = }')
 
 		# fixing split_padding (added in encoding at the start, when splitting source bytes into byte_size)
-		d_bytes[-1] = d_bytes[-1][:len(d_bytes[-1])-self.split_padding]
-		print(f'{d_bytes = }')
+		d_bytes[-1] = d_bytes[-1][:len(d_bytes[-1]) - self.split_padding]
+		# print(f'{d_bytes = }')
 
 		# normalizing d_bytes into 8-bit bytes for writing
 		d_bytes = self.normalize_bytes(d_bytes)
-		print(f'{d_bytes = }')
+		# print(f'{d_bytes = }')
 
 		# writing to file
 		with open(self.destination, 'wb') as f:
