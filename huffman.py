@@ -34,6 +34,12 @@ class Huffman:
 		self.split_padding = 0
 		self.normal_padding = 0
 
+		self.source_data = None
+		self.source_index = 0
+		self.source_length = 0
+
+		self.destination_data = None
+
 		self.huffman_tree = None
 		self.huffman_table = None
 
@@ -87,22 +93,20 @@ class Huffman:
 					f'Expected destination file extension for encoding: {Huffman.encoded_file_extension}'
 				)
 
-	def split_bytes(self, file_bytes: str) -> [str]:
+	def split_bytes(self) -> [str]:
 		# calculate right-padding to be able to split file_bytes into byte_size bytes
-		pad = ((self.byte_size - len(file_bytes) % self.byte_size) % self.byte_size)
-		file_bytes += '0' * pad
-		self.split_padding = pad
+		self.split_padding = ((self.byte_size - len(self.source_data) % self.byte_size) % self.byte_size)
+		self.source_data += '0' * self.split_padding
 		# return a list of bit strings split every byte_size
-		return [file_bytes[i:i + self.byte_size] for i in range(0, len(file_bytes), self.byte_size)]
+		return [self.source_data[i:i + self.byte_size] for i in range(0, len(self.source_data), self.byte_size)]
 
 	def normalize_bytes(self, encoded_bytes: [str], encode_padding: bool = False) -> [int]:
 		# join all encoded bytes as a long bit string
 		all_bytes = ''.join(encoded_bytes)
 
 		# calculate right-padding to be able to split all_bytes into 8-bit bytes
-		pad = (8 - len(all_bytes) % 8) % 8
-		self.normal_padding += pad
-		all_bytes += '0' * pad
+		self.normal_padding = (8 - len(all_bytes) % 8) % 8
+		all_bytes += '0' * self.normal_padding
 		if encode_padding:
 			# if we're encoding, encode split_padding and normal_padding as the [4:12] bits of the header
 			all_bytes = (bin(self.split_padding)[2:].zfill(4) + bin(self.normal_padding)[2:].zfill(4)).join(
@@ -115,9 +119,9 @@ class Huffman:
 		# split all file bytes by byte, get the binary string representation, remove '0b' start, pad left with 0s
 		return ''.join(bin(byte)[2:].zfill(8) for byte in self.source.read_bytes())
 
-	def _build_huffman_tree(self, data):
+	def _build_huffman_tree(self):
 		# build frequency dict
-		frequency = Counter(data)
+		frequency = Counter(self.source_data)
 		# init heap
 		heap = [Huffman.Node(char, freq, None) for char, freq in frequency.items()]
 		# heapify based on Node.__lt__, which sorts by node.freq
@@ -199,20 +203,20 @@ class Huffman:
 		# print(f'{self.source, self.destination = }')
 
 		# get bytes as bit string (adds split_padding)
-		s_bytes = self._read_source_bytes()
-		# print(f'{s_bytes = }')
+		self.source_data = self._read_source_bytes()
+		# print(f'{self.source_data = }')
 
 		# split bytes by byte_size
-		s_bytes_split = self.split_bytes(s_bytes)
-		# print(f'{s_bytes_split = }')
+		self.source_data = self.split_bytes()
+		# print(f'{self.source_data = }')
 
 		# generate huffman_tree and huffman_table
-		self._generate_codes(self._build_huffman_tree(s_bytes_split))
+		self._generate_codes(self._build_huffman_tree())
 		# print(f'{self.huffman_table = }')
 		# print(f'{self.huffman_tree = }')
 
 		# encode using huffman_table
-		d_bytes = [self.huffman_table[byte] for byte in s_bytes_split]
+		self.destination_data = [self.huffman_table[byte] for byte in self.source_data]
 		# print(f'{d_bytes = }')
 
 		# !!! Add header to d_bytes start before writing to file
@@ -225,21 +229,21 @@ class Huffman:
 		# print(f'{bin_huffman_table = }')
 
 		# byte_size (4bits) + split_padding (4bits) + normal_padding (4bits) + compressed huffman_table
-		d_bytes.insert(0, bin_byte_size + '00000000' + bin_huffman_table)
+		self.destination_data.insert(0, bin_byte_size + '00000000' + bin_huffman_table)
 		# print(f'{d_bytes = }')
 
 		# normalizes d_bytes into 8-bit bytes, adds normal_padding, encodes split and normal padding into header
-		d_bytes = self.normalize_bytes(d_bytes, True)
+		self.destination_data = self.normalize_bytes(self.destination_data, True)
 		# print(f'{d_bytes = }')
 
 		# writing to file
 		with open(self.destination, 'wb') as f:
-			f.write(bytearray(d_bytes))
+			f.write(bytearray(self.destination_data))
 
-	def _uncompress_huffman_table(self, data: str, node):
-		if data:
+	def _uncompress_huffman_table(self, node: Node):
+		if self.source_index < self.source_length:
 			# if we still have data left
-			if data[0] == '0':
+			if self.source_data[self.source_index] == '0':
 				# if the next bit is 0 we're not in a leaf node
 				# get code of current node or ''
 				code = node.code if node.code else ''
@@ -247,75 +251,75 @@ class Huffman:
 				node.left = Huffman.Node(None, None, code + '1')
 				node.right = Huffman.Node(None, None, code + '0')
 
-				data = self._uncompress_huffman_table(data[1:], node.left)
-				data = self._uncompress_huffman_table(data, node.right)
+				self.source_index += 1
+				self._uncompress_huffman_table(node.left)
+				self._uncompress_huffman_table(node.right)
 			else:
 				# else we're in a leaf node, read char
-				node.char = data[1:1 + self.byte_size]
-				return data[1 + self.byte_size:]
-
-		return data
+				node.char = self.source_data[self.source_index + 1: self.source_index + 1 + self.byte_size]
+				self.source_index += 1 + self.byte_size
 
 	def _decode(self):
 		# print(f'{self.source, self.destination = }')
 
 		# get bytes as bit string
-		s_bytes = self._read_source_bytes()
+		self.source_data = self._read_source_bytes()
+		self.source_index = 0
+		self.source_length = len(self.source_data)
 		# print(f'{s_bytes = }')
 
 		# byte_size: first 4 bits, encoding: -1, decoding: +1
-		self.byte_size = int(s_bytes[:4], 2) + 1
+		self.byte_size = int(self.source_data[:4], 2) + 1
 		# print(f'{self.byte_size = }')
 
 		# split_padding: next 4 bits
-		self.split_padding = int(s_bytes[4:8], 2)
+		self.split_padding = int(self.source_data[4:8], 2)
 		# print(f'{self.split_padding = }')
 
 		# normal_padding: next 4 bits
-		self.normal_padding = int(s_bytes[8:12], 2)
+		self.normal_padding = int(self.source_data[8:12], 2)
 		# print(f'{self.normal_padding = }')
 
 		# setup empty root node
 		self.huffman_tree = Huffman.Node(None, None, '')
 		# get remaining s_bytes after decompressing huffman table bits into huffman_tree
-		s_bytes = self._uncompress_huffman_table(s_bytes[12:], self.huffman_tree)
+		self.source_index = 12
+		self._uncompress_huffman_table(self.huffman_tree)
 		# print(f'{s_bytes = }')
 		# print(f'{self.huffman_tree = }')
 
 		# read huffman_table (in reverse code: char) from flattened huffman_tree, where nodes are leaves
-		self.huffman_table = {node.code: node.char for node in Huffman.flatten_tree(self.huffman_tree) if
-		                      node.char is not None}
+		self.huffman_table = {node.code: node.char for node in Huffman.flatten_tree(self.huffman_tree) if node.char}
 		# print(f'{self.huffman_table = }')
 
-		d_bytes = []
+		self.destination_data = []
 		# fixing normal_padding (added in encoding at the end to fit 8-bit bytes)
-		s_bytes = s_bytes[:len(s_bytes) - self.normal_padding]
+		self.source_length -= self.normal_padding
+		# s_bytes = s_bytes[:len(s_bytes) - self.normal_padding]
 		# print(f'{s_bytes[:len(s_bytes)-self.normal_padding] = }')
 
 		# decoding using huffman_table
 		current_byte = ''
-		read_length = 0
-		s_bytes_len = len(s_bytes)
-		while read_length + len(current_byte) < s_bytes_len:
-			current_byte += s_bytes[read_length + len(current_byte)]
+		while self.source_index + len(current_byte) < self.source_length:
+			current_byte += self.source_data[self.source_index + len(current_byte)]
 			if current_byte in self.huffman_table:
-				d_bytes.append(self.huffman_table[current_byte])
-				read_length += len(current_byte)
+				self.destination_data.append(self.huffman_table[current_byte])
+				self.source_index += len(current_byte)
 				current_byte = ''
 
 		# print(f'{d_bytes = }')
 
 		# fixing split_padding (added in encoding at the start, when splitting source bytes into byte_size)
-		d_bytes[-1] = d_bytes[-1][:len(d_bytes[-1]) - self.split_padding]
+		self.destination_data[-1] = self.destination_data[-1][:len(self.destination_data[-1]) - self.split_padding]
 		# print(f'{d_bytes = }')
 
 		# normalizing d_bytes into 8-bit bytes for writing
-		d_bytes = self.normalize_bytes(d_bytes)
+		self.destination_data = self.normalize_bytes(self.destination_data)
 		# print(f'{d_bytes = }')
 
 		# writing to file
 		with open(self.destination, 'wb') as f:
-			f.write(bytearray(d_bytes))
+			f.write(bytearray(self.destination_data))
 
 
 if __name__ == '__main__':
