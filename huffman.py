@@ -1,6 +1,7 @@
 import argparse, heapq
 from pathlib import Path
 from collections import Counter
+from hurry.filesize import size
 
 
 class Huffman:
@@ -139,7 +140,7 @@ class Huffman:
 			print(f'{self.source_data = }')
 
 		# split bytes by byte_size
-		self.source_data = self.split_bytes()
+		self.source_data = self._split_bytes()
 		if self.print:
 			print(f'{self.source_data = }')
 
@@ -171,7 +172,7 @@ class Huffman:
 			print(f'{self.destination_data = }')
 
 		# normalizes d_bytes into 8-bit bytes, adds normal_padding, encodes split and normal padding into header
-		self.destination_data = self.normalize_bytes(self.destination_data, True)
+		self.destination_data = self._normalize_bytes(self.destination_data, True)
 		if self.print:
 			print(f'{self.destination_data = }')
 
@@ -179,8 +180,11 @@ class Huffman:
 		with open(self.destination, 'wb') as f:
 			f.write(bytearray(self.destination_data))
 
+		self.print_stats()
+
 	def _decode(self):
-		if self.print: print(f'{self.source, self.destination = }')
+		if self.print:
+			print(f'{self.source, self.destination = }')
 
 		# get bytes as bit string
 		self.source_data = self._read_source_bytes()
@@ -243,7 +247,7 @@ class Huffman:
 			print(f'{self.destination_data = }')
 
 		# normalizing d_bytes into 8-bit bytes for writing
-		self.destination_data = self.normalize_bytes(self.destination_data)
+		self.destination_data = self._normalize_bytes(self.destination_data)
 		if self.print:
 			print(f'{self.destination_data = }')
 
@@ -251,11 +255,13 @@ class Huffman:
 		with open(self.destination, 'wb') as f:
 			f.write(bytearray(self.destination_data))
 
+		self.print_stats()
+
 	def _read_source_bytes(self):
 		# split all file bytes by byte, get the binary string representation, remove '0b' start, pad left with 0s
 		return ''.join(bin(byte)[2:].zfill(8) for byte in self.source.read_bytes())
 
-	def split_bytes(self) -> [str]:
+	def _split_bytes(self) -> [str]:
 		# calculate right-padding to be able to split file_bytes into byte_size bytes
 		self.split_padding = ((self.byte_size - len(self.source_data) % self.byte_size) % self.byte_size)
 		self.source_data += '0' * self.split_padding
@@ -310,7 +316,7 @@ class Huffman:
 		# calling recursive method
 		return Huffman.encode_tree(self.huffman_tree)
 
-	def normalize_bytes(self, encoded_bytes: [str], encode_padding: bool = False) -> [int]:
+	def _normalize_bytes(self, encoded_bytes: [str], encode_padding: bool = False) -> [int]:
 		# join all encoded bytes as a long bit string
 		all_bytes = ''.join(encoded_bytes)
 
@@ -343,6 +349,13 @@ class Huffman:
 				# else we're in a leaf node, read char
 				node.char = self.source_data[self.source_index + 1: self.source_index + 1 + self.byte_size]
 				self.source_index += 1 + self.byte_size
+
+	def print_stats(self):
+		s_size = self.source.stat().st_size
+		d_size = self.destination.stat().st_size
+		print(f'Source file:      {size(s_size)}')
+		print(f'Destination file: {size(d_size)}')
+		print(f'Compression:      {(s_size - d_size) / s_size * 100:.2f}%')
 
 
 if __name__ == '__main__':
