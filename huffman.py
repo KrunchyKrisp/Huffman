@@ -24,6 +24,38 @@ class Huffman:
 			# debug # printing
 			return f'Node({self.char}: {self.freq}, {self.code})'
 
+	@staticmethod
+	def flatten_tree(node, heap=None):
+		if heap is None:
+			heap = []
+		if node:
+			# if we have a node, traverse post-order
+			if node.left:
+				Huffman.flatten_tree(node.left, heap)
+			if node.right:
+				Huffman.flatten_tree(node.right, heap)
+			heap.append(node)
+		return heap
+
+	@staticmethod
+	def encode_tree(node, code=None):
+		if code is None:
+			code = ''
+
+		if node:
+			# if we have a node
+			if node.char:
+				# if we're a leaf node, we append 1 and node.char to the code
+				code += '1' + node.char
+			else:
+				# else we're not a leaf but have 2 child nodes, append 0, go left, then right
+				left, right = node.left, node.right
+				code += '0'
+				code = Huffman.encode_tree(left, code)
+				code = Huffman.encode_tree(right, code)
+
+		return code
+
 	def __init__(self):
 		self.parser = None
 		self.args = None
@@ -93,112 +125,6 @@ class Huffman:
 					f'Expected destination file extension for encoding: {Huffman.encoded_file_extension}'
 				)
 
-	def split_bytes(self) -> [str]:
-		# calculate right-padding to be able to split file_bytes into byte_size bytes
-		self.split_padding = ((self.byte_size - len(self.source_data) % self.byte_size) % self.byte_size)
-		self.source_data += '0' * self.split_padding
-		# return a list of bit strings split every byte_size
-		return [self.source_data[i:i + self.byte_size] for i in range(0, len(self.source_data), self.byte_size)]
-
-	def normalize_bytes(self, encoded_bytes: [str], encode_padding: bool = False) -> [int]:
-		# join all encoded bytes as a long bit string
-		all_bytes = ''.join(encoded_bytes)
-
-		# calculate right-padding to be able to split all_bytes into 8-bit bytes
-		self.normal_padding = (8 - len(all_bytes) % 8) % 8
-		all_bytes += '0' * self.normal_padding
-		if encode_padding:
-			# if we're encoding, encode split_padding and normal_padding as the [4:12] bits of the header
-			all_bytes = (bin(self.split_padding)[2:].zfill(4) + bin(self.normal_padding)[2:].zfill(4)).join(
-				[all_bytes[:4], all_bytes[12:]])
-		# print(f'{all_bytes = }')
-		# return a list of bytes split every 8 bits, parsed back into integers
-		return [int(all_bytes[i:i + 8], 2) for i in range(0, len(all_bytes), 8)]
-
-	def _read_source_bytes(self):
-		# split all file bytes by byte, get the binary string representation, remove '0b' start, pad left with 0s
-		return ''.join(bin(byte)[2:].zfill(8) for byte in self.source.read_bytes())
-
-	def _build_huffman_tree(self):
-		# build frequency dict
-		frequency = Counter(self.source_data)
-		# init heap
-		heap = [Huffman.Node(char, freq, None) for char, freq in frequency.items()]
-		# heapify based on Node.__lt__, which sorts by node.freq
-		heapq.heapify(heap)
-
-		# while we have more than 1 element
-		while len(heap) > 1:
-			# pop the 2 smallest (by freq) nodes
-			node1 = heapq.heappop(heap)
-			node2 = heapq.heappop(heap)
-
-			# create a parent node with summed freqs
-			merged = Huffman.Node(None, node1.freq + node2.freq, None)
-			merged.left = node1
-			merged.right = node2
-
-			# push parent
-			heapq.heappush(heap, merged)
-
-		# heap[0] is the root of the whole tree, save and return it
-		self.huffman_tree = heap[0]
-		return self.huffman_tree
-
-	def _generate_codes(self, node, prefix='', code_dict=None):
-		if code_dict is None:
-			code_dict = {}
-
-		if node:
-			# if we have a node
-			if node.char:
-				# if we're a leaf, assign prefix as the encoding of node.char
-				code_dict[node.char] = prefix
-			else:
-				# else we travel left (1), then right (0)
-				self._generate_codes(node.left, prefix + '1', code_dict)
-				self._generate_codes(node.right, prefix + '0', code_dict)
-
-		# save huffman_table and return it
-		self.huffman_table = code_dict
-		return self.huffman_table
-
-	@staticmethod
-	def flatten_tree(node, heap=None):
-		if heap is None:
-			heap = []
-		if node:
-			# if we have a node, traverse post-order
-			if node.left:
-				Huffman.flatten_tree(node.left, heap)
-			if node.right:
-				Huffman.flatten_tree(node.right, heap)
-			heap.append(node)
-		return heap
-
-	@staticmethod
-	def encode_tree(node, code=None):
-		if code is None:
-			code = ''
-
-		if node:
-			# if we have a node
-			if node.char:
-				# if we're a leaf node, we append 1 and node.char to the code
-				code += '1' + node.char
-			else:
-				# else we're not a leaf but have 2 child nodes, append 0, go left, then right
-				left, right = node.left, node.right
-				code += '0'
-				code = Huffman.encode_tree(left, code)
-				code = Huffman.encode_tree(right, code)
-
-		return code
-
-	def _compress_huffman_table(self):
-		# calling recursive method
-		return Huffman.encode_tree(self.huffman_tree)
-
 	def _encode(self):
 		# print(f'{self.source, self.destination = }')
 
@@ -239,25 +165,6 @@ class Huffman:
 		# writing to file
 		with open(self.destination, 'wb') as f:
 			f.write(bytearray(self.destination_data))
-
-	def _uncompress_huffman_table(self, node: Node):
-		if self.source_index < self.source_length:
-			# if we still have data left
-			if self.source_data[self.source_index] == '0':
-				# if the next bit is 0 we're not in a leaf node
-				# get code of current node or ''
-				code = node.code if node.code else ''
-				# when encoding we always go left (1) then right (0)
-				node.left = Huffman.Node(None, None, code + '1')
-				node.right = Huffman.Node(None, None, code + '0')
-
-				self.source_index += 1
-				self._uncompress_huffman_table(node.left)
-				self._uncompress_huffman_table(node.right)
-			else:
-				# else we're in a leaf node, read char
-				node.char = self.source_data[self.source_index + 1: self.source_index + 1 + self.byte_size]
-				self.source_index += 1 + self.byte_size
 
 	def _decode(self):
 		# print(f'{self.source, self.destination = }')
@@ -320,6 +227,99 @@ class Huffman:
 		# writing to file
 		with open(self.destination, 'wb') as f:
 			f.write(bytearray(self.destination_data))
+
+	def _read_source_bytes(self):
+		# split all file bytes by byte, get the binary string representation, remove '0b' start, pad left with 0s
+		return ''.join(bin(byte)[2:].zfill(8) for byte in self.source.read_bytes())
+
+	def split_bytes(self) -> [str]:
+		# calculate right-padding to be able to split file_bytes into byte_size bytes
+		self.split_padding = ((self.byte_size - len(self.source_data) % self.byte_size) % self.byte_size)
+		self.source_data += '0' * self.split_padding
+		# return a list of bit strings split every byte_size
+		return [self.source_data[i:i + self.byte_size] for i in range(0, len(self.source_data), self.byte_size)]
+
+	def _build_huffman_tree(self):
+		# build frequency dict
+		frequency = Counter(self.source_data)
+		# init heap
+		heap = [Huffman.Node(char, freq, None) for char, freq in frequency.items()]
+		# heapify based on Node.__lt__, which sorts by node.freq
+		heapq.heapify(heap)
+
+		# while we have more than 1 element
+		while len(heap) > 1:
+			# pop the 2 smallest (by freq) nodes
+			node1 = heapq.heappop(heap)
+			node2 = heapq.heappop(heap)
+
+			# create a parent node with summed freqs
+			merged = Huffman.Node(None, node1.freq + node2.freq, None)
+			merged.left = node1
+			merged.right = node2
+
+			# push parent
+			heapq.heappush(heap, merged)
+
+		# heap[0] is the root of the whole tree, save and return it
+		self.huffman_tree = heap[0]
+		return self.huffman_tree
+
+	def _generate_codes(self, node, prefix='', code_dict=None):
+		if code_dict is None:
+			code_dict = {}
+
+		if node:
+			# if we have a node
+			if node.char:
+				# if we're a leaf, assign prefix as the encoding of node.char
+				code_dict[node.char] = prefix
+			else:
+				# else we travel left (1), then right (0)
+				self._generate_codes(node.left, prefix + '1', code_dict)
+				self._generate_codes(node.right, prefix + '0', code_dict)
+
+		# save huffman_table and return it
+		self.huffman_table = code_dict
+		return self.huffman_table
+
+	def _compress_huffman_table(self):
+		# calling recursive method
+		return Huffman.encode_tree(self.huffman_tree)
+
+	def normalize_bytes(self, encoded_bytes: [str], encode_padding: bool = False) -> [int]:
+		# join all encoded bytes as a long bit string
+		all_bytes = ''.join(encoded_bytes)
+
+		# calculate right-padding to be able to split all_bytes into 8-bit bytes
+		self.normal_padding = (8 - len(all_bytes) % 8) % 8
+		all_bytes += '0' * self.normal_padding
+		if encode_padding:
+			# if we're encoding, encode split_padding and normal_padding as the [4:12] bits of the header
+			all_bytes = (bin(self.split_padding)[2:].zfill(4) + bin(self.normal_padding)[2:].zfill(4)).join(
+				[all_bytes[:4], all_bytes[12:]])
+		# print(f'{all_bytes = }')
+		# return a list of bytes split every 8 bits, parsed back into integers
+		return [int(all_bytes[i:i + 8], 2) for i in range(0, len(all_bytes), 8)]
+
+	def _uncompress_huffman_table(self, node: Node):
+		if self.source_index < self.source_length:
+			# if we still have data left
+			if self.source_data[self.source_index] == '0':
+				# if the next bit is 0 we're not in a leaf node
+				# get code of current node or ''
+				code = node.code if node.code else ''
+				# when encoding we always go left (1) then right (0)
+				node.left = Huffman.Node(None, None, code + '1')
+				node.right = Huffman.Node(None, None, code + '0')
+
+				self.source_index += 1
+				self._uncompress_huffman_table(node.left)
+				self._uncompress_huffman_table(node.right)
+			else:
+				# else we're in a leaf node, read char
+				node.char = self.source_data[self.source_index + 1: self.source_index + 1 + self.byte_size]
+				self.source_index += 1 + self.byte_size
 
 
 if __name__ == '__main__':
