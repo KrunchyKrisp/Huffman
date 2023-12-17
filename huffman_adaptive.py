@@ -155,7 +155,7 @@ class HuffmanAdaptive:
 
 		self._write_destination_chunk(True)
 
-	# self.print_stats()
+		self.print_stats()
 
 	def _decode(self):
 		if self.print:
@@ -207,6 +207,8 @@ class HuffmanAdaptive:
 			print(f'LEFTOVER {self.destination_data = }')
 
 		self._write_destination_chunk(True, False)
+
+		self.print_stats()
 
 	def _read_source_chunk_bytes(self):
 		if not self.source_f:
@@ -312,6 +314,8 @@ class HuffmanAdaptive:
 		return ''.join(bin(byte)[2:].zfill(8) for byte in self.source_f.read(HuffmanAdaptive.chunk_size))
 
 	def print_stats(self):
+		if self.destination_f:
+			self.destination_f.close()
 		s_size = self.source.stat().st_size
 		d_size = self.destination.stat().st_size
 		print(f'Source file:      {size(s_size)}')
