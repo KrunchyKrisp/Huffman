@@ -8,6 +8,7 @@ class HuffmanAdaptive:
 	encoded_file_extension = '.huff_a'
 	chunk_size = 2 ** 12  # 4KB
 	normalize_limit = 2 ** 8
+	type_dict = {'freeze': '00', 'reconstruct': '01', 'normalize': '10'}
 
 	class Node:
 		def __init__(self, char, freq, code):
@@ -44,9 +45,6 @@ class HuffmanAdaptive:
 		self.normal_padding = 0
 
 		self.source_data = None
-		self.source_index = 0
-		self.source_length = 0
-
 		self.destination_data = None
 
 		self.huffman_tree = None
@@ -55,6 +53,10 @@ class HuffmanAdaptive:
 		self.read_bytes = 0
 
 		self.frozen = False
+		self.header = ''
+
+		self.chunk_index = 0
+		self.chunk_length = 0
 
 		self.print = None
 
@@ -74,6 +76,7 @@ class HuffmanAdaptive:
 		self.parser.add_argument('-t', help='Type of action to take', choices=['freeze', 'reconstruct', 'normalize'],
 		                         default='freeze')
 		self.parser.add_argument('-p', '--Print', help='Print flag', action='store_true')
+		self.parser.add_argument('-D', '--Decode', help='Decode flag', action='store_true')
 		self.args = self.parser.parse_args()
 
 		self.source = self.args.Source
@@ -81,6 +84,7 @@ class HuffmanAdaptive:
 		self.n = self.args.n
 		self.type = self.args.t
 		self.print = self.args.Print
+		self.decode = self.args.Decode
 
 		# additional checks for files
 		self.source = Path(self.source)
@@ -120,33 +124,89 @@ class HuffmanAdaptive:
 			print(f'{self.source, self.destination = }')
 
 		self.destination_data = list()
+		self.header = bin(self.n)[2:].zfill(4) + HuffmanAdaptive.type_dict[self.type]
 
 		self.read_bytes = 0
 		self._init_frequencies()
 		self._generate_codes(self._build_huffman_tree())
 		if self.print:
-			print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }')
-			print(f'{self.huffman_tree = }')
-			print(f'{sorted(self.huffman_table.items(), key=lambda x: (len(x[1]), x[1])) = }')
+			print(f'{self.header = }')
+		# print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }')
+		# print(f'{self.huffman_tree = }')
+		# print(f'{sorted(self.huffman_table.items(), key=lambda x: (len(x[1]), x[1])) = }')
 
 		while chunk := self._read_source_chunk_bytes():
 			for byte in chunk:
 				self.destination_data.append(self.huffman_table[byte])
 				self._update_frequencies(byte)
 
+			self._write_destination_chunk()
+
 			if self.print:
-				print('=' * 100)
+				print('=' * 256)
 				# print(f'{chunk = }', end='\n\n')
-				print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }', end='\n\n')
-				print(f'{sorted(self.huffman_table.items(), key=lambda x: (len(x[1]), x[1])) = }', end='\n\n')
+				# print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }', end='\n\n')
+				# print(f'{sorted(self.huffman_table.items(), key=lambda x: (len(x[1]), x[1])) = }', end='\n\n')
 				print(f'{self.destination_data = }')
 				print('=' * 256, end='\n\n')
+
+		if self.print:
+			print(f'LEFTOVER {self.destination_data = }')
+
+		self._write_destination_chunk(True)
 
 	# self.print_stats()
 
 	def _decode(self):
-		# self.print_stats()
-		pass
+		if self.print:
+			print(f'{self.source, self.destination = }')
+
+		self.destination_data = list()
+		self.header = ''
+		self.chunk_index = 0
+		self._init_frequencies()
+		self._generate_codes(self._build_huffman_tree())
+
+		if self.print:
+			print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }')
+			print(f'{self.huffman_tree = }')
+			print(f'{sorted(self.huffman_table.items(), key=lambda x: x[1]) = }')
+
+		current_byte = ''
+		while chunk := self._read_source_chunk_string():
+			self.chunk_length = len(chunk)
+			self.chunk_index = 0
+			if self.header == '':
+				self.header = chunk[:6]
+				self.n = int(self.header[:4], 2)
+				self.type = {v: k for k, v in HuffmanAdaptive.type_dict.items()}[self.header[4:]]
+				self.chunk_index = 6
+
+			# decoding using huffman_table
+			while self.chunk_index + len(
+					current_byte) < self.chunk_length:  # S[10010]1010101010101, [10010]S[10101]0101010101
+				current_byte += chunk[self.chunk_index + len(current_byte)]
+				if current_byte in self.huffman_table:
+					decoded_byte = self.huffman_table[current_byte]
+					self._update_frequencies(decoded_byte)
+					self.destination_data.append(decoded_byte)
+					self.chunk_index += len(current_byte)
+					current_byte = ''
+
+			self._write_destination_chunk(normalize=False)
+
+			if self.print:
+				print('=' * 256)
+				print(f'{chunk = }', end='\n\n')
+				print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }', end='\n\n')
+				print(f'{sorted(self.huffman_table.items(), key=lambda x: x[1]) = }', end='\n\n')
+				print(f'{self.destination_data = }')
+				print('=' * 256, end='\n\n')
+
+		if self.print:
+			print(f'LEFTOVER {self.destination_data = }')
+
+		self._write_destination_chunk(True, False)
 
 	def _read_source_chunk_bytes(self):
 		if not self.source_f:
@@ -154,23 +214,34 @@ class HuffmanAdaptive:
 
 		return self.source_f.read(HuffmanAdaptive.chunk_size)
 
-	def _write_destination_chunk(self, encode_padding: bool = False):
+	def _write_destination_chunk(self, leftover: bool = False, normalize: bool = True):
 		if not self.destination_f:
 			self.destination_f = self.destination.open('wb')
 
-		self.destination_f.write(bytearray(self._normalize_bytes()))
+		if normalize:
+			self.destination_f.write(bytearray(self._normalize_bytes(leftover)))
+		else:
+			self.destination_f.write(bytearray(self.destination_data))
+			self.destination_data = list()
 
-	def _normalize_bytes(self) -> [int]:
+	def _normalize_bytes(self, leftover: bool = False) -> [int]:
 		# join all encoded bytes as a long bit string
-		all_bytes = ''.join(self.destination_data)
+		all_bytes = self.header + ''.join(self.destination_data)
+		self.header = ''
 		all_bytes_len = len(all_bytes)
-		leftover = len(all_bytes) % 8
-		self.destination_data = all_bytes[all_bytes_len - leftover:]
-
 		if self.print:
 			print(f'{all_bytes = }')
-		# return a list of bytes split every 8 bits, parsed back into integers
-		return [int(all_bytes[i:i + 8], 2) for i in range(0, all_bytes_len - leftover, 8)]
+
+		if not leftover:
+			leftover = len(all_bytes) % 8
+			self.destination_data = [all_bytes[all_bytes_len - leftover:]]
+			# return a list of bytes split every 8 bits, parsed back into integers
+			return [int(all_bytes[i:i + 8], 2) for i in range(0, all_bytes_len - leftover, 8)]
+		else:
+			self.normal_padding = (8 - all_bytes_len % 8) % 8
+			all_bytes += '0' * self.normal_padding
+			# return a list of bytes split every 8 bits, parsed back into integers
+			return [int(all_bytes, 2)]
 
 	def _init_frequencies(self):
 		self.huffman_frequencies = {k: 0 for k in range(0, 2 ** 8)}
@@ -211,7 +282,7 @@ class HuffmanAdaptive:
 				self._generate_codes(node.right, prefix + '0', code_dict)
 
 		# save huffman_table and return it
-		self.huffman_table = code_dict
+		self.huffman_table = {v: k for k, v in code_dict.items()} if self.decode else code_dict
 		return self.huffman_table
 
 	def _update_frequencies(self, byte):
@@ -232,6 +303,13 @@ class HuffmanAdaptive:
 					self._generate_codes(self._build_huffman_tree())
 				case 'normalize':
 					self._generate_codes(self._build_huffman_tree())
+
+	def _read_source_chunk_string(self):
+		if not self.source_f:
+			self.source_f = self.source.open('rb')
+
+		# split all file bytes by byte, get the binary string representation, remove '0b' start, pad left with 0s
+		return ''.join(bin(byte)[2:].zfill(8) for byte in self.source_f.read(HuffmanAdaptive.chunk_size))
 
 	def print_stats(self):
 		s_size = self.source.stat().st_size
