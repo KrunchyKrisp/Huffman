@@ -161,13 +161,15 @@ class Huffman:
 		bin_byte_size = bin(self.byte_size - 1)[2:].zfill(4)
 		if self.print:
 			print(f'{bin_byte_size = }')
+		# split_padding: 4 bits
+		bin_split_padding = bin(self.split_padding)[2:].zfill(4)
 		# huffman_table
 		bin_huffman_table = self._compress_huffman_table()
 		if self.print:
 			print(f'{bin_huffman_table = }')
 
 		# byte_size (4bits) + split_padding (4bits) + normal_padding (4bits) + compressed huffman_table
-		self.destination_data.insert(0, bin_byte_size + '00000000' + bin_huffman_table)
+		self.destination_data.insert(0, bin_byte_size + bin_split_padding + '0000' + bin_huffman_table)
 		if self.print:
 			print(f'{self.destination_data = }')
 
@@ -325,8 +327,8 @@ class Huffman:
 		all_bytes += '0' * self.normal_padding
 		if encode_padding:
 			# if we're encoding, encode split_padding and normal_padding as the [4:12] bits of the header
-			all_bytes = (bin(self.split_padding)[2:].zfill(4) + bin(self.normal_padding)[2:].zfill(4)).join(
-				[all_bytes[:4], all_bytes[12:]])
+			all_bytes = bin(self.normal_padding)[2:].zfill(4).join(
+				[all_bytes[:8], all_bytes[12:]])
 		if self.print: print(f'{all_bytes = }')
 		# return a list of bytes split every 8 bits, parsed back into integers
 		return [int(all_bytes[i:i + 8], 2) for i in range(0, len(all_bytes), 8)]
