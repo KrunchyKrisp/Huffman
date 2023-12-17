@@ -168,8 +168,8 @@ class Huffman:
 		if self.print:
 			print(f'{bin_huffman_table = }')
 
-		# byte_size (4bits) + split_padding (4bits) + normal_padding (4bits) + compressed huffman_table
-		self.destination_data.insert(0, bin_byte_size + bin_split_padding + '0000' + bin_huffman_table)
+		# byte_size (4bits) + split_padding (4bits) + normal_padding (4bits) (inserted in _normalize_bytes) + compressed huffman_table
+		self.destination_data.insert(0, bin_byte_size + bin_split_padding + '' + bin_huffman_table)
 		if self.print:
 			print(f'{self.destination_data = }')
 
@@ -323,13 +323,16 @@ class Huffman:
 		all_bytes = ''.join(encoded_bytes)
 
 		# calculate right-padding to be able to split all_bytes into 8-bit bytes
-		self.normal_padding = (8 - len(all_bytes) % 8) % 8
+		# we do +4 if we encode_padding to account for the 4 bits that normal_padding is going to take up in the header
+		self.normal_padding = (8 - (len(all_bytes) + (4 if encode_padding else 0)) % 8) % 8
 		all_bytes += '0' * self.normal_padding
 		if encode_padding:
 			# if we're encoding, encode split_padding and normal_padding as the [4:12] bits of the header
-			all_bytes = bin(self.normal_padding)[2:].zfill(4).join(
-				[all_bytes[:8], all_bytes[12:]])
-		if self.print: print(f'{all_bytes = }')
+			bin_normal_padding = bin(self.normal_padding)[2:].zfill(4)
+			# byte_size (4bits) + split_padding (4bits) + normal_padding (4bits) + compressed huffman_table + data
+			all_bytes = all_bytes[:8] + bin_normal_padding + all_bytes[8:]
+		if self.print:
+			print(f'{all_bytes = }')
 		# return a list of bytes split every 8 bits, parsed back into integers
 		return [int(all_bytes[i:i + 8], 2) for i in range(0, len(all_bytes), 8)]
 
