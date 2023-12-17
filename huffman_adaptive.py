@@ -158,7 +158,7 @@ class HuffmanAdaptive:
 		if not self.destination_f:
 			self.destination_f = self.destination.open('wb')
 
-		self.destination_f.write(bytearray(self._normalize_bytes(encode_padding)))
+		self.destination_f.write(bytearray(self._normalize_bytes()))
 
 	def _normalize_bytes(self) -> [int]:
 		# join all encoded bytes as a long bit string
@@ -232,7 +232,6 @@ class HuffmanAdaptive:
 					self._generate_codes(self._build_huffman_tree())
 				case 'normalize':
 					self._generate_codes(self._build_huffman_tree())
-
 
 	def print_stats(self):
 		s_size = self.source.stat().st_size
