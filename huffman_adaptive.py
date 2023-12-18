@@ -134,11 +134,13 @@ class HuffmanAdaptive:
 		self._generate_codes(self._build_huffman_tree())
 		if self.print:
 			pass
-		# print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }')
-		# print(f'{self.huffman_tree = }')
-		# print(f'{sorted(self.huffman_table.items(), key=lambda x: (len(x[1]), x[1])) = }')
+			# print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }')
+			# print(f'{self.huffman_tree = }')
+			# print(f'{sorted(self.huffman_table.items(), key=lambda x: (len(x[1]), x[1])) = }')
 
 		while chunk := self._read_source_chunk_bytes():
+			if not self.print:
+				print('.', end='', flush=True)
 			for byte in chunk:
 				self.destination_data.append(self.huffman_table[byte])
 				self._update_frequencies(byte)
@@ -150,6 +152,7 @@ class HuffmanAdaptive:
 				# print(f'{sorted(self.huffman_table.items(), key=lambda x: (len(x[1]), x[1])) = }', end='\n\n')
 				print(f'{self.destination_data = }')
 				print('=' * 256, end='\n\n')
+				pass
 
 			self._write_destination_chunk()
 
@@ -178,13 +181,15 @@ class HuffmanAdaptive:
 		self._generate_codes(self._build_huffman_tree())
 
 		if self.print:
+			# print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }')
+			# print(f'{self.huffman_tree = }')
+			# print(f'{sorted(self.huffman_table.items(), key=lambda x: x[1]) = }')
 			pass
-		# print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }')
-		# print(f'{self.huffman_tree = }')
-		# print(f'{sorted(self.huffman_table.items(), key=lambda x: x[1]) = }')
 
 		current_byte = ''
 		while chunk := self._read_source_chunk_string():
+			if not self.print:
+				print('.', end='', flush=True)
 			self.chunk_length = len(chunk)
 			self.chunk_index = 0
 			if self.header == '':  # self.header also signals first chunk
@@ -201,17 +206,21 @@ class HuffmanAdaptive:
 
 			if self.source_f.read(1) == b'':  # last chunk, need to remove self.normal_padding
 				self.chunk_length -= self.normal_padding
+				if self.print:
+					print(f'LAST CHUNK')
 			else:  # otherwise move back by 1
 				self.source_f.seek(-1, os.SEEK_CUR)  # ###############| A ###############
+				if self.print:
+					print(f'SEEK -1')
 
 			# decoding using huffman_table
-			while self.chunk_index + len(current_byte) < self.chunk_length:  # S[10010]1010101010101, [10010]S[10101]0101010101
-				current_byte += chunk[self.chunk_index + len(current_byte)]
+			while self.chunk_index < self.chunk_length:  # S[10010]1010101010101, [10010]S[10101]0101010101
+				current_byte += chunk[self.chunk_index]
+				self.chunk_index += 1
 				if current_byte in self.huffman_table:
 					decoded_byte = self.huffman_table[current_byte]
 					self._update_frequencies(decoded_byte)
 					self.destination_data.append(decoded_byte)
-					self.chunk_index += len(current_byte)
 					current_byte = ''
 
 			if self.print:
@@ -221,6 +230,7 @@ class HuffmanAdaptive:
 				# print(f'{sorted(self.huffman_table.items(), key=lambda x: x[1]) = }', end='\n\n')
 				print(f'{self.destination_data = }')
 				print('=' * 256, end='\n\n')
+				pass
 
 			self._write_destination_chunk(normalize=False)
 
@@ -252,7 +262,8 @@ class HuffmanAdaptive:
 		all_bytes = ''.join(self.destination_data)  # with header: 0000 0000 ## $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 		all_bytes_len = len(all_bytes)
 		if self.print:
-			print(f'{all_bytes = }')
+			# print(f'{all_bytes = }')
+			pass
 
 		if not leftover:
 			leftover = len(all_bytes) % 8
@@ -339,6 +350,7 @@ class HuffmanAdaptive:
 			self.destination_f.close()
 		s_size = self.source.stat().st_size
 		d_size = self.destination.stat().st_size
+		print()
 		print(f'Source file:      {size(s_size)}')
 		print(f'Destination file: {size(d_size)}')
 		print(f'Compression:      {(s_size - d_size) / s_size * 100:.2f}%')
