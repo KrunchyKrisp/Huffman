@@ -1,7 +1,6 @@
 import argparse, heapq
 import os
 from pathlib import Path
-from collections import Counter
 from hurry.filesize import size
 
 
