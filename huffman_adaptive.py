@@ -6,9 +6,9 @@ from hurry.filesize import size
 
 
 class HuffmanAdaptive:
-	encoded_file_extension = '.huff_a'
+	encoded_file_extension = '.huff_a'  # chosen encoded file extension
 	chunk_size = 2 ** 12  # 4KB
-	normalize_limit = 2 ** 8
+	normalize_limit = 2 ** 8  # 256
 	type_dict = {'freeze': '00', 'reconstruct': '01', 'normalize': '10'}
 
 	class Node:
@@ -309,7 +309,7 @@ class HuffmanAdaptive:
 			code_dict = {}
 
 		if node:  # if we have a node
-			if node.char:  # if we're a leaf, assign prefix as the encoding of node.char
+			if node.char is not None:  # if we're a leaf, assign prefix as the encoding of node.char
 				code_dict[node.char] = prefix
 			else:  # else we travel left (1), then right (0)
 				self._generate_codes(node.left, prefix + '1', code_dict)
