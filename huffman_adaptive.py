@@ -1,7 +1,6 @@
 import argparse, heapq
 import os
 from pathlib import Path
-from collections import Counter
 from hurry.filesize import size
 
 
@@ -194,7 +193,7 @@ class HuffmanAdaptive:
 			self.chunk_index = 0
 			if self.header == '':  # self.header also signals first chunk
 				self.header = chunk[:10]
-				self.n = int(self.header[:4], 2)
+				self.n = 2 ** int(self.header[:4], 2)
 				self.normal_padding = int(self.header[4:8], 2)
 				self.type = {v: k for k, v in HuffmanAdaptive.type_dict.items()}[self.header[8:]]
 				self.chunk_index = 10
@@ -310,13 +309,16 @@ class HuffmanAdaptive:
 
 		if node:  # if we have a node
 			if node.char is not None:  # if we're a leaf, assign prefix as the encoding of node.char
-				code_dict[node.char] = prefix
+				if self.decode:
+					code_dict[prefix] = node.char
+				else:
+					code_dict[node.char] = prefix
 			else:  # else we travel left (1), then right (0)
 				self._generate_codes(node.left, prefix + '1', code_dict)
 				self._generate_codes(node.right, prefix + '0', code_dict)
 
 		# save huffman_table and return it
-		self.huffman_table = {v: k for k, v in code_dict.items()} if self.decode else code_dict
+		self.huffman_table = code_dict
 		return self.huffman_table
 
 	def _update_frequencies(self, byte):
@@ -324,7 +326,8 @@ class HuffmanAdaptive:
 		self.read_bytes += 1
 
 		if self.type == 'normalize' and self.huffman_frequencies[byte] >= HuffmanAdaptive.normalize_limit:
-			self.huffman_frequencies = {k: v // 2 for k, v in self.huffman_frequencies.items()}
+			for key in self.huffman_frequencies:
+				self.huffman_frequencies[key] //= 2
 
 		if self.read_bytes == self.n:
 			self.read_bytes = 0

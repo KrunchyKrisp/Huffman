@@ -232,11 +232,11 @@ class Huffman:
 
 		# decoding using huffman_table
 		current_byte = ''
-		while self.source_index + len(current_byte) < self.source_length:  # S[10010]1010101010101, [10010]S[10101]0101010101
-			current_byte += self.source_data[self.source_index + len(current_byte)]
+		while self.source_index < self.source_length:  # S[10010]1010101010101, [10010]S[10101]0101010101
+			current_byte += self.source_data[self.source_index]
+			self.source_index += 1
 			if current_byte in self.huffman_table:
 				self.destination_data.append(self.huffman_table[current_byte])
-				self.source_index += len(current_byte)
 				current_byte = ''
 
 		if self.print:
