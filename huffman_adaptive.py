@@ -8,7 +8,7 @@ class HuffmanAdaptive:
 	encoded_file_extension = '.huff_a'  # chosen encoded file extension
 	chunk_size = 2 ** 12  # 4KB
 	normalize_limit = 2 ** 8  # 256
-	type_dict = {'freeze': '00', 'reconstruct': '01', 'normalize': '10'}
+	type_dict = {'freeze': '00', 'reconstruct': '01', 'normalize': '10'}  # encoding for our -t variable
 
 	class Node:
 		def __init__(self, char, freq, code):
@@ -24,7 +24,7 @@ class HuffmanAdaptive:
 			return self.freq < other.freq
 
 		def __repr__(self):
-			# debug # printing
+			# debug printing
 			return f'Node({self.char}: {self.freq}, {self.code})'
 
 	def __init__(self):
@@ -41,16 +41,14 @@ class HuffmanAdaptive:
 		self.n = None
 		self.type = None
 
-		self.split_padding = 0
 		self.normal_padding = 0
 
-		self.source_data = None
 		self.destination_data = None
 
 		self.huffman_tree = None
 		self.huffman_table = None
 		self.huffman_frequencies = None
-		self.read_bytes = 0
+		self.read_bytes = 0  # _update_frequencies() limit compared to self.n (form of 2 ** n)
 
 		self.frozen = False
 
@@ -122,20 +120,20 @@ class HuffmanAdaptive:
 		if self.print:
 			print(f'{self.source, self.destination = }')
 
-		self.destination_data = []
+		self.destination_data = list()  # init
 		# bin_n (4 bits) + normal_padding (4 bits) + bin_type (2 bits)
 		# bin_n + normal_padding will be added after the whole file is finished being encoded
 		header = '00000000' + HuffmanAdaptive.type_dict[self.type]
 		self.destination_data.append(header)
+		if self.print:
+			print(f'{self.destination_data = }')
 
 		self.read_bytes = 0
 		self._init_frequencies()
 		self._generate_codes(self._build_huffman_tree())
 		if self.print:
-			pass
-			# print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }')
-			# print(f'{self.huffman_tree = }')
-			# print(f'{sorted(self.huffman_table.items(), key=lambda x: (len(x[1]), x[1])) = }')
+			print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }', end='\n\n')
+			print(f'{sorted(self.huffman_table.items(), key=lambda x: (len(x[1]), x[1])) = }', end='\n\n')
 
 		while chunk := self._read_source_chunk_bytes():
 			if not self.print:
@@ -146,24 +144,25 @@ class HuffmanAdaptive:
 
 			if self.print:
 				print('=' * 256)
-				# print(f'{chunk = }', end='\n\n')
-				# print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }', end='\n\n')
-				# print(f'{sorted(self.huffman_table.items(), key=lambda x: (len(x[1]), x[1])) = }', end='\n\n')
+				print(f'{chunk = }', end='\n\n')
+				print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }', end='\n\n')
+				print(f'{sorted(self.huffman_table.items(), key=lambda x: (len(x[1]), x[1])) = }', end='\n\n')
 				print(f'{self.destination_data = }')
 				print('=' * 256, end='\n\n')
 				pass
 
 			self._write_destination_chunk()
 
-		if self.print:
-			print(f'LEFTOVER {self.destination_data = }')
-
 		if self.destination_data:
+			if self.print:
+				print(f'LEFTOVER {self.destination_data = }')
 			self._write_destination_chunk(True)
 
 		# updating the header, first byte only
 		self.destination_f.close()
 		header = bin(self.n)[2:].zfill(4) + bin(self.normal_padding)[2:].zfill(4)
+		if self.print:
+			print(f'{header = }')
 		self.destination_f = open(self.destination, 'rb+')
 		self.destination_f.write(bytearray([int(header, 2)]))
 
@@ -171,7 +170,7 @@ class HuffmanAdaptive:
 
 	def _decode(self):
 		if self.print:
-			print(f'{self.source, self.destination = }')
+			print(f'{self.source, self.destination = }', end='\n\n')
 
 		self.destination_data = list()
 		self.header = ''
@@ -180,10 +179,8 @@ class HuffmanAdaptive:
 		self._generate_codes(self._build_huffman_tree())
 
 		if self.print:
-			# print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }')
-			# print(f'{self.huffman_tree = }')
-			# print(f'{sorted(self.huffman_table.items(), key=lambda x: x[1]) = }')
-			pass
+			print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }', end='\n\n')
+			print(f'{sorted(self.huffman_table.items(), key=lambda x: x[1]) = }', end='\n\n')
 
 		current_byte = ''
 		while chunk := self._read_source_chunk_string():
@@ -210,7 +207,7 @@ class HuffmanAdaptive:
 			else:  # otherwise move back by 1
 				self.source_f.seek(-1, os.SEEK_CUR)  # ###############| A ###############
 				if self.print:
-					print(f'SEEK -1')
+					print(f'NOT LAST CHUNK')
 
 			# decoding using huffman_table
 			while self.chunk_index < self.chunk_length:  # S[10010]1010101010101, [10010]S[10101]0101010101
@@ -224,19 +221,19 @@ class HuffmanAdaptive:
 
 			if self.print:
 				print('=' * 256)
-				# print(f'{chunk[:self.chunk_length] = }', end='\n\n')
-				# print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }', end='\n\n')
-				# print(f'{sorted(self.huffman_table.items(), key=lambda x: x[1]) = }', end='\n\n')
+				print(f'{chunk[:self.chunk_length] = }', end='\n\n')
+				print(f'{sorted(self.huffman_frequencies.items(), key=lambda x: x[1], reverse=True) = }', end='\n\n')
+				print(f'{sorted(self.huffman_table.items(), key=lambda x: x[1]) = }', end='\n\n')
 				print(f'{self.destination_data = }')
 				print('=' * 256, end='\n\n')
 				pass
 
 			self._write_destination_chunk(normalize=False)
 
-		if self.print:
-			print(f'LEFTOVER {self.destination_data = }')
-
-		self._write_destination_chunk(True, False)
+		if self.destination_data:
+			if self.print:
+				print(f'LEFTOVER {self.destination_data = }')
+			self._write_destination_chunk(True, False)
 
 		self.print_stats()
 
@@ -291,7 +288,7 @@ class HuffmanAdaptive:
 			node1 = heapq.heappop(heap)
 			node2 = heapq.heappop(heap)
 
-			# create a parent node with summed freqs
+			# create a parent node with summed frequencies
 			merged = HuffmanAdaptive.Node(None, node1.freq + node2.freq, None)
 			merged.left = node1
 			merged.right = node2
@@ -329,7 +326,7 @@ class HuffmanAdaptive:
 			for key in self.huffman_frequencies:
 				self.huffman_frequencies[key] //= 2
 
-		if self.read_bytes == self.n:
+		if self.read_bytes == self.n:  # limit is in form of 2 ** n
 			self.read_bytes = 0
 			match self.type:
 				case 'freeze':
