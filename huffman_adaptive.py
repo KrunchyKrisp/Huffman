@@ -329,7 +329,7 @@ class HuffmanAdaptive:
 			for key in self.huffman_frequencies:
 				self.huffman_frequencies[key] //= 2
 
-		if self.read_bytes == self.n:
+		if self.read_bytes == self.byte_limit:
 			self.read_bytes = 0
 			match self.type:
 				case 'freeze':
