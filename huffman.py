@@ -18,7 +18,7 @@ class Huffman:
 
 		# For comparison of nodes
 		def __lt__(self, other):
-			# we compare nodes based on freq
+			# for priority queue, based on frequency
 			return self.freq < other.freq
 
 		def __repr__(self):
@@ -27,10 +27,10 @@ class Huffman:
 
 	@staticmethod
 	def flatten_tree(node, heap=None):
+		# convert the tree into a list of nodes (post-order traversal)
 		if heap is None:
 			heap = []
 		if node:
-			# if we have a node, traverse post-order
 			if node.left:
 				Huffman.flatten_tree(node.left, heap)
 			if node.right:
@@ -40,6 +40,7 @@ class Huffman:
 
 	@staticmethod
 	def encode_tree(node, code=None):
+		# Encode the tree structure as a string (recursive)
 		if code is None:
 			code = ''
 
@@ -153,8 +154,9 @@ class Huffman:
 			print(f'{self.destination_data = }')
 
 		# !!! Add header to d_bytes start before writing to file
-
 		# byte_size: 4 bits, encoding: -1, decoding: +1
+
+		# Add header information before writing to file
 		bin_byte_size = bin(self.byte_size - 1)[2:].zfill(4)
 		if self.print:
 			print(f'{bin_byte_size = }')
