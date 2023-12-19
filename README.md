@@ -1,21 +1,21 @@
 
-# Documentation for Huffman and Huffman Adaptive Compression Applications
+# Documentation for Huffman and Huffman Adaptive Compression CLIs
 
 ## Introduction
 
-This document provides a overview of two Python-based applications:
-* Huffman Compression Application
-* Huffman Adaptive Compression Application
+This document provides an overview of two Python-based CLIs:
+* Huffman Compression CLI
+* Huffman Adaptive Compression CLI
 
-These applications implement the Huffman coding algorithm, a method for lossless data compression, with the latter incorporating adaptive techniques for handling dynamic data patterns.
+These CLIs implement the Huffman coding algorithm, a method for lossless data compression, with the latter incorporating adaptive techniques for handling dynamic data patterns.
 
 
-## Huffman Compression Application
+## Huffman Compression CLI
 
 ### Overview
-The Huffman Compression Application is a basic implementation of the Huffman coding algorithm. It is suitable for educational purposes and demonstrates the principles of lossless data compression.
+The Huffman Compression CLI is a basic implementation of the Huffman coding algorithm. It is suitable for educational purposes and demonstrates the principles of lossless data compression.
 
-### Running the Application
+### Running the CLI
 - **Encoding (Compression):**
   ```
   python3 huffman.py [source_file] -d [destination_file] -p
@@ -31,12 +31,12 @@ The Huffman Compression Application is a basic implementation of the Huffman cod
 - **File Handling**: Reads from and writes to files, handling binary data.
 - **Command-Line Interface**: Uses `argparse` for handling command-line arguments.
 
-## Huffman Adaptive Compression Application
+## Huffman Adaptive Compression CLI
 
 ### Overview
-The Huffman Adaptive Compression Application is an advanced version that dynamically updates its Huffman tree based on the input data.
+The Huffman Adaptive Compression CLI is an advanced version that dynamically updates its Huffman tree based on the input data.
 
-### Running the Application
+### Running the CLI
 - **Encoding:**
   ```
   python3 huffman_adaptive.py [source_file] -d [destination_file] -n [n_value] -t [type] -p
