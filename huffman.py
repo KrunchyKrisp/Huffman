@@ -1,7 +1,9 @@
 import argparse, heapq
+import time
 from pathlib import Path
 from collections import Counter
 from hurry.filesize import size
+from tabulate import tabulate
 
 
 class Huffman:
@@ -77,11 +79,14 @@ class Huffman:
 		self.print = None
 
 	def run(self):
+		start = time.perf_counter()
 		self._parse_args()
 		if self.decode:
 			self._decode()
 		else:
 			self._encode()
+		end = time.perf_counter()
+		self.print_stats(end - start)
 
 	def _parse_args(self):
 		self.parser = argparse.ArgumentParser()
@@ -183,8 +188,6 @@ class Huffman:
 		with open(self.destination, 'wb') as f:
 			f.write(bytearray(self.destination_data))
 
-		self.print_stats()
-
 	def _decode(self):
 		if self.print:
 			print(f'{self.source, self.destination = }')
@@ -258,8 +261,6 @@ class Huffman:
 		# writing to file
 		with open(self.destination, 'wb') as f:
 			f.write(bytearray(self.destination_data))
-
-		self.print_stats()
 
 	def _read_source_bytes(self):
 		# split all file bytes by byte, get the binary string representation, remove '0b' start, pad left with 0s
@@ -353,12 +354,16 @@ class Huffman:
 				node.char = self.source_data[self.source_index + 1: self.source_index + 1 + self.byte_size]
 				self.source_index += 1 + self.byte_size
 
-	def print_stats(self):
+	def print_stats(self, total_time):
 		s_size = self.source.stat().st_size
 		d_size = self.destination.stat().st_size
-		print(f'Source file:      {size(s_size)}')
-		print(f'Destination file: {size(d_size)}')
-		print(f'Compression:      {(s_size - d_size) / s_size * 100:.2f}%')
+		table = [
+			['Source file', size(s_size)],
+			['Destination file', size(d_size)],
+			['Decompression' if self.decode else 'Compression', f'{(((d_size - s_size) / s_size + 1) if self.decode else ((s_size - d_size) / s_size)) * 100:.2f}%'],
+			['Total time', f'{total_time:.2f}s']
+		]
+		print(tabulate(table))
 
 
 if __name__ == '__main__':
