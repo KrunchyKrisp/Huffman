@@ -3,6 +3,7 @@ import os
 import time
 from pathlib import Path
 from hurry.filesize import size
+from tabulate import tabulate
 
 
 class HuffmanAdaptive:
@@ -67,7 +68,7 @@ class HuffmanAdaptive:
 		else:
 			self._encode()
 		end = time.perf_counter()
-		print(f'Total time:       {end - start:.2f}s')
+		self.print_stats(end - start)
 
 	def _parse_args(self):
 		self.parser = argparse.ArgumentParser()
@@ -172,8 +173,6 @@ class HuffmanAdaptive:
 		self.destination_f = open(self.destination, 'rb+')
 		self.destination_f.write(bytearray([int(header, 2)]))
 
-		self.print_stats()
-
 	def _decode(self):
 		if self.print:
 			print(f'{self.source, self.destination = }', end='\n\n')
@@ -241,8 +240,6 @@ class HuffmanAdaptive:
 			if self.print:
 				print(f'LEFTOVER {self.destination_data = }')
 			self._write_destination_chunk(True, False)
-
-		self.print_stats()
 
 	def _read_source_chunk_bytes(self):
 		if not self.source_f:
@@ -352,15 +349,18 @@ class HuffmanAdaptive:
 		# split all file bytes by byte, get the binary string representation, remove '0b' start, pad left with 0s
 		return ''.join(bin(byte)[2:].zfill(8) for byte in self.source_f.read(HuffmanAdaptive.chunk_size))
 
-	def print_stats(self):
-		if self.destination_f:
-			self.destination_f.close()
+	def print_stats(self, total_time):
 		s_size = self.source.stat().st_size
 		d_size = self.destination.stat().st_size
-		print()
-		print(f'Source file:      {size(s_size)}')
-		print(f'Destination file: {size(d_size)}')
-		print(f'Compression:      {(s_size - d_size) / s_size * 100:.2f}%')
+		table = [
+			['Source file', size(s_size)],
+			['Destination file', size(d_size)],
+			['Decompression' if self.decode else 'Compression', f'{(((d_size - s_size) / s_size + 1) if self.decode else ((s_size - d_size) / s_size)) * 100:.2f}%'],
+			['Total time', f'{total_time:.2f}s']
+		]
+		if not self.print:
+			print('\n')
+		print(tabulate(table))
 
 
 if __name__ == '__main__':
