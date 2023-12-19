@@ -360,7 +360,7 @@ class Huffman:
 		table = [
 			['Source file', size(s_size)],
 			['Destination file', size(d_size)],
-			['Decompression' if self.decode else 'Compression', f'{(((d_size - s_size) / s_size + 1) if self.decode else ((s_size - d_size) / s_size)) * 100:.2f}%'],
+			['Decompression' if self.decode else 'Compression', f'{(d_size - s_size) / s_size * 100:+.2f}%'],
 			['Total time', f'{total_time:.2f}s']
 		]
 		print(tabulate(table))
