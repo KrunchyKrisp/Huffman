@@ -67,7 +67,7 @@ class HuffmanAdaptive:
 		else:
 			self._encode()
 		end = time.perf_counter()
-		print(f'Total time: {end - start:.2f}s')
+		print(f'Total time:       {end - start:.2f}s')
 
 	def _parse_args(self):
 		self.parser = argparse.ArgumentParser()
