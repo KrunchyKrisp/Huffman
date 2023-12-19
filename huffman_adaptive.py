@@ -1,5 +1,6 @@
 import argparse, heapq
 import os
+import time
 from pathlib import Path
 from hurry.filesize import size
 
@@ -59,11 +60,14 @@ class HuffmanAdaptive:
 		self.print = None
 
 	def run(self):
+		start = time.perf_counter()
 		self._parse_args()
 		if self.decode:
 			self._decode()
 		else:
 			self._encode()
+		end = time.perf_counter()
+		print(f'Total time: {end - start:.2f}s')
 
 	def _parse_args(self):
 		self.parser = argparse.ArgumentParser()
